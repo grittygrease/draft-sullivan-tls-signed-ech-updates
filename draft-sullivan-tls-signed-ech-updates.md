@@ -9,17 +9,17 @@ number:
 date:
 consensus: true
 v: 3
-area: Security
-workgroup: TLS
+area: "Security"
+workgroup: "Transport Layer Security"
 keyword:
  - TLS
  - ECH
 venue:
-  group: TLS
-  type: Working Group
+  group: "Transport Layer Security"
+  type: "Working Group"
   mail:
   arch:
-  github: grittygrease/draft-sullivan-tls-signed-ech-updates
+  github: "grittygrease/draft-sullivan-tls-signed-ech-updates"
   latest:
 
 author:
