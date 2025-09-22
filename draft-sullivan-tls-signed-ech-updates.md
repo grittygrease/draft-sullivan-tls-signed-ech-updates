@@ -2,10 +2,9 @@
 title: "Authenticated ECH Config Distribution and Rotation"
 abbrev: "Authenticated ECH Update"
 category: std
-docname: draft-ietf-tls-auth-ech-update-00
-ipr: trust200902
+docname: draft-sullivan-tls-signed-ech-updates-latest
 area: Security
-workgroup: TLS Working Group
+workgroup: TLS
 keyword:
   - TLS 1.3
   - Encrypted ClientHello
@@ -14,23 +13,30 @@ keyword:
   - DNSSEC
   - PKIX
   - TOFU
-date: 2025-09-18
 
 author:
-  - name: "Draft Author"
-    organization: "IETF"
-    email: "draft@example.com"
+  - fullname: Nick Sullivan
+    organization: Cryptography Consulting LLC
+  - fullname: Martin Thomson
+    organization: Mozilla
+  - fullname: Dennis Jackson
+    organization: Mozilla
 
 normative:
-  - RFC8446
-  - RFC9180
-  - RFC8989  # (for BCP14 / RFC8174 reference if needed)
-  - I-D.ietf-tls-svcb-ech
-  - I-D.ietf-tls-wkech
+  RFC2119:
+  RFC8174:
+  RFC8446:
+  RFC9180:
+  I-D.ietf-tls-svcb-ech:
+  I-D.ietf-tls-wkech:
 
 informative:
-  - I-D.ietf-tls-esni  # ECH specification (draft-ietf-tls-esni-23 or successor)
+  I-D.ietf-tls-esni:
 
+venue:
+  group: TLS
+  type: Working Group
+  github: grittygrease/draft-sullivan-tls-signed-ech-updates
 ---
 
 {::boilerplate bcp14}
