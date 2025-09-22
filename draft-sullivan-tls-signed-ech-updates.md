@@ -1,9 +1,4 @@
 ---
-###
-# Internet-Draft Markdown Template
-#
-# Only edit the first block of fields for initial setup.
-###
 title: "TLS Signed ECH Updates"
 abbrev: "Signed ECH Updates"
 category: info
