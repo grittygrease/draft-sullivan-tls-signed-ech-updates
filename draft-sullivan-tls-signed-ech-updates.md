@@ -39,9 +39,7 @@ venue:
   github: grittygrease/draft-sullivan-tls-signed-ech-updates
 ---
 
-{::boilerplate bcp14}
-
-## Abstract
+--- abstract
 
 Encrypted ClientHello (ECH) configurations need to be delivered to clients and rotated regularly for security. This document specifies an authenticated mechanism for in-band delivery and rotation of ECH configurations.
 
@@ -56,6 +54,8 @@ A new ECHConfig extension, `ech_update_auth`, advertises the server's supported 
 This design decouples ECH configuration authenticity from any particular transport (DNS, HTTPS, or TLS). Instead, it relies on the carried signature or proof. The mechanism enables authenticated delivery of ECH configs during TLS handshakes, which is particularly valuable for correcting errors when clients use expired or outdated keys. Additionally, it incorporates a mode for authenticating ECH fallback (retry) handshakes via public key pinning.
 
 The result is a simple, robust framework for securely distributing and rotating ECH keys, suitable for standardization on the TLS working group track.
+
+--- middle
 
 ## Introduction
 
