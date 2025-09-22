@@ -57,7 +57,7 @@ The result is a simple, robust framework for securely distributing and rotating 
 
 --- middle
 
-## Introduction
+# Introduction
 
 Deployment of TLS Encrypted ClientHello (ECH) requires that clients obtain the server's current ECH configuration (ECHConfig) before initiating a connection. Existing mechanisms to distribute ECHConfig data include publishing it in DNS through a Service Binding (SVCB or HTTPS) record[I-D.ietf-tls-svcb-ech] or via an HTTPS well-known URI[I-D.ietf-tls-wkech]. 
 
@@ -77,7 +77,7 @@ Opportunistic ECH bootstrapping allows a client with no prior ECH knowledge to l
 
 By authenticating ECH configs independently, the mechanism makes ECH key distribution **orthogonal to transport**. The same signed ECHConfig artifact can be conveyed via DNS, HTTPS, or the TLS handshake itself. The client will accept it only if the accompanying signature or proof is valid under one of its trust modes.
 
-### Overview of Approach
+# Overview of Approach
 
 In this mechanism, each ECHConfig (as defined in [I-D.ietf-tls-esni]) may carry an `ech_update_auth` extension that specifies how the configuration can be updated in the future. This extension includes a bitmask of supported authentication **methods** and, for certain methods, trust anchors (in the form of hashed public keys). The three authentication methods defined in this document are:
 
@@ -133,7 +133,7 @@ Finally, this design attempts to **minimize complexity**. It does not use explic
 
 The rest of this document is organized as follows. Section [Design Details and Wire Format](#wire-formats) defines the new TLS extension `ech_config_update` and its structure, along with the ClientHello extension and the ECHConfig `ech_update_auth` extension. Section [Client and Server Behavior](#behavior) describes the state machine and processing rules for clients and servers, including how to handle retry handshakes and how to apply updates. Section [Security Considerations](#security) discusses the security properties of this mechanism, including trust on first use risks, replay and freshness, and privacy implications. Section [IANA Considerations](#iana) allocates the necessary extension code points and an EKU OID for ECHConfig signing. Finally, Appendix A provides an example of a DNS record and a TLS handshake carrying an ECH config update, and Appendix B offers a deployment checklist for implementers.
 
-## Conventions and Definitions
+# Conventions and Definitions
 
 The key words **“MUST”**, **“MUST NOT”**, **“SHOULD”**, **“SHOULD NOT”**, and **“MAY”** in this document are to be interpreted as described in BCP 14 ([RFC2119], [RFC8174]) when, and only when, they appear in all capitals.
 
@@ -141,11 +141,11 @@ This document assumes familiarity with TLS 1.3 [RFC8446] and the ECH specificati
 
 The reader should recall that in TLS 1.3, the server’s EncryptedExtensions message is encrypted and integrity-protected with handshake keys[I-D.ietf-tls-esni]. New extensions defined as part of EncryptedExtensions are not visible to network attackers and cannot be modified by an attacker without detection. Additionally, "certificate verification" refers to the standard X.509 validation process (chain building, signature and expiration checking, name matching, etc.), unless otherwise specified.
 
-## Design Details and Wire Formats {#wire-formats}
+# Design Details and Wire Formats {#wire-formats}
 
 This section specifies the new extensions and data structures in detail. All multi-byte values are in network byte order (big-endian). The syntax uses the TLS presentation language from [RFC8446].
 
-### ECH Config Update Authentication Extension in ECHConfig (`ech_update_auth`)
+# ECH Config Update Authentication Extension in ECHConfig (`ech_update_auth`)
 
 The `ech_update_auth` extension is an extension to the ECHConfig structure. The ECH specification [I-D.ietf-tls-esni] defines that each ECHConfigContents may include a set of extensions, each identified by a 16-bit type. This document defines a new ECHConfigExtensionType (`ech_update_auth`) with a suggested code point TBD1 (to be assigned from the "ECH Config Extension Type" registry). This extension, when present in an ECHConfig, indicates how the server will authenticate future updates to this ECHConfig.
 
@@ -173,7 +173,7 @@ If an ECHConfig does not include `ech_update_auth`, the in-band update mechanism
 - If `pkix` bit is set, the server must have a valid certificate (and chain) for the public name with the ECH config signing EKU (Section [IANA Considerations](#iana) defines the EKU) available at runtime to use for signing. The certificate’s public key algorithm dictates what signature algorithms are possible.
 - If `dnssec` bit is set, the server must have access to DNSSEC signing infrastructure for the zone (or a way to obtain fresh DNS records). In practice, the server might simply fetch its own DNS record and include the proof if it knows the zone is signed and it has the ability to get the RRSIG and DNSKEY; or an operator might provision a service to provide the needed DNSSEC blobs. The specifics are out of scope of this document, but the server should only set this bit if it can produce a timely proof. (Including stale or incorrect DNSSEC data in an update will cause clients to ignore the update.)
 
-### ClientHello Extension for Update Method Support
+# ClientHello Extension for Update Method Support
 
 A new TLS extension type is defined for the client to indicate support for authenticated ECH config updates: `encrypted_client_hello_update_support` (name TBA). This is a **ClientHello** extension (it is not meaningful in ServerHello). We suggest a code point of TBD2 for this extension (to be assigned from the TLS ExtensionType registry). The extension data in the ClientHello is:
 
@@ -194,7 +194,7 @@ If a client is not offering ECH at all (for instance, connecting to a host for w
 
 Once the server selects a method, it prepares the `ech_config_update` extension to send, as described next.
 
-### TLS EncryptedExtension: `ech_config_update`
+# TLS EncryptedExtension: `ech_config_update`
 
 We define a new extension type `ech_config_update` (with code point TBD3) which is used by the server in the EncryptedExtensions message. The server MUST NOT send this extension unless the handshake is a TLS 1.3 (or higher) handshake where the client indicated support via `ECHConfigUpdateSupport` and the server is configured with an updated ECHConfigList to provide. If those conditions are met, the server MAY send the extension. There is no separate signal in the ServerHello; it appears only in EncryptedExtensions. (Presence or absence of this extension does not alter the TLS handshake flow for key agreement or certificate exchange, except as noted for fallback in Section [State Machine Impact](#state-machine).)
 
@@ -303,11 +303,11 @@ We emphasize that including only one layer (the child zone’s DNSKEY and DS) ma
 
 **Wire image considerations:** The `ech_config_update` extension appears in EncryptedExtensions, which is encrypted. It therefore does not add any cleartext bytes on the wire aside from maybe altering packet sizes slightly. The presence of the client’s support extension in ClientHelloOuter is observable. This extension is quite small (1 byte of actual data plus overhead). An observer might infer that the client is ECH-aware and supports certain methods (e.g., if the byte is 0x04, perhaps only DNSSEC). However, since the mere presence of ECH (even GREASE) already signals ECH support, this is not a significant additional leak. If a client is concerned, it could omit advertising methods until it has a real ECHConfig from the server; but that is an implementation policy issue.
 
-### State Machine and Behavior for Client and Server {#behavior}
+# State Machine and Behavior for Client and Server {#behavior}
 
 This section describes how the above structures are used in practice during a TLS handshake, including error handling and interactions with ECH retry (fallback) behavior.
 
-#### Server Behavior
+# Server Behavior
 
 **On initial connection (full handshake, client offered ECH):** When a server receives a ClientHello that contains an "encrypted_client_hello" extension (i.e., the client is attempting ECH), it will process the ECH as per [I-D.ietf-tls-esni] to determine if it can decrypt the ClientHelloInner. At the same time, it should check for the presence of the `ECHConfigUpdateSupport` extension in the ClientHelloOuter. If the client did include that extension, and if the server has a newer ECHConfigList to send (for example, the server’s current ECH key is about to expire or rotate, or perhaps the server always sends the same config via both DNS and in-band for redundancy), it proceeds to prepare an update.
 
@@ -337,7 +337,7 @@ Therefore:
 - If on fallback outer handshake, optionally prepare to close connection after sending update (the server might even send a session ticket or just a message saying "please reconnect", but that's application level; not in TLS spec).
 - Note: The server should not send `ech_config_update` if it doesn’t see client support, or if it has no changes. It is possible for server to always send it anyway (with the same config as client used), acting as an affirmation. This is not harmful; a client will verify and see it's the same it already has. But to save bandwidth, it might only send when there's a difference or an upcoming rotation.
 
-#### Client Behavior and State Machine
+# Client Behavior and State Machine
 
 The client’s operation can be broken into phases:
 
@@ -406,7 +406,7 @@ The client’s operation can be broken into phases:
     - Or, if it still has some hope (like maybe it will attempt to fall back to no ECH for that origin, which leaks SNI but in case server just doesn’t support ECH at all or attacker stripping?), that’s outside our scope. Typically, if ECH was offered but failed and no valid retry config is obtained, it suggests either an attacker interfering or misconfiguration. ECH spec suggests not to automatically fall back to clear SNI, except possibly for certain policies. Many clients, for privacy, will fail connection rather than expose real SNI after offering ECH (especially if "ECH required" policy).
     - So likely, the client should abort and maybe wait or try again later.
 
-#### Public Name Authentication for Retry {#public-name-auth}
+# Public Name Authentication for Retry {#public-name-auth}
 
 As mentioned, one advantage of this framework is the ability to authenticate fallback connections via a pinned key rather than a CA-issued certificate. In the context of ECH, when a server rejects ECH and uses the outer ClientHello to continue, the client ordinarily must verify the server’s certificate for the public name[I-D.ietf-tls-esni]. If the operator has used a unique public name (possibly one not even signed by a public CA), this would fail, making it impossible to deliver the new ECH config. To address this, we leverage the TOFU pinned keys.
 
@@ -423,13 +423,13 @@ In practice, this means:
 
 This approach is essentially an integration of the concept from the "Public Name Masquerade" proposal[I-D.ietf-tls-esni] (without naming it). It enables multiple public names and even one-time names because you don’t need a CA-signed cert for each – a pinned key can cover them. The pin acts as a lightweight trust anchor specific to that ECH deployment.
 
-#### Privacy Considerations in Mechanism
+# Privacy Considerations in Mechanism
 
 The design ensures that distribution of ECH configs does not significantly compromise privacy. The delivered `ech_config_list` is encrypted in the handshake (so on-path observers don’t learn the new ECH keys or any info within). The client’s support extension in ClientHelloOuter does reveal a bit of information: which methods the client supports (e.g., knowledge of DNSSEC, etc.). In most cases, this is not highly sensitive. It could potentially be used as a fingerprinting bit (distinguishing clients by their combination of support). To mitigate that, clients might choose to always indicate support for all methods they implement, rather than a subset, to reduce variability. Also, because this extension is only sent when offering ECH, the set of users is already somewhat privacy-conscious or using modern clients, which limits exposure.
 
 By enabling the use of arbitrary public names (with pins or DNSSEC proofs), this mechanism can increase the size of the anonymity set for ECH. Servers could use unique or random public names for each connection or each client without worrying about CA issuance, as long as the DNS and pinning is managed, thus making it harder for observers to map public names to specific hidden origins[I-D.ietf-tls-esni]. However, if unique names are used, a passive observer might still see patterns (like a particular client always gets a unique name, which could ironically become an identifier for that client across sessions if not done carefully). Operators should balance how they use this capability—e.g., maybe rotate public names per time period or group of clients to avoid one-to-one linkability.
 
-### Example Exchange (Informative)
+# Example Exchange (Informative)
 
 *This section provides a non-normative example to illustrate the protocol.* 
 
@@ -478,7 +478,7 @@ The client supports DNSSEC and PKIX but not implementing TOFU? Actually, let’s
 
 In this example, we saw a variety of uses of the mechanism.
 
-## Security Considerations {#security}
+# Security Considerations {#security}
 
 The security of this mechanism rests on the authenticity of the `ech_config_update` messages and the initial trust in the first ECHConfig.
 
@@ -533,7 +533,7 @@ We reserved a method bit (0x08) for "public name mapping authentication" (the NO
 
 Overall, this mechanism enhances the security of ECH by ensuring clients get authenticated updates (preventing downgrade or sticky-key attacks) and by allowing alternatives to PKI for the outer handshake (preventing situations where inability to get a certificate for a cover name stops deployment). The major security caveats revolve around initial bootstrapping trust and handling failures gracefully, which we have addressed with normative requirements and recommendations above.
 
-## Privacy Considerations
+# Privacy Considerations
 
 ECH itself is a privacy technology aimed at hiding the client’s intended server name from observers. This document builds on ECH and tries to maintain or improve privacy:
 - By allowing the use of unique or diversified public names (enabled by the TOFU pinning method), it potentially increases the anonymity set as discussed. Instead of one fixed fronting domain that might allow correlating traffic, servers could use a pool of fronts, even ephemeral ones.
@@ -548,7 +548,7 @@ ECH itself is a privacy technology aimed at hiding the client’s intended serve
 
 **In summary**, the mechanism is designed to preserve the privacy goals of ECH. It avoids falling back to clear SNI, and it contains authenticated channels for delivering needed info without revealing the hidden target. Implementers should still adhere to best practices (like not using pinned keys in ways that uniquely identify users, and ensuring the consistent sending of the support extension). This spec in itself introduces no new cookies, identifiers, or tracking mechanisms beyond what TLS and DNS already require.
 
-## IANA Considerations {#iana}
+# IANA Considerations {#iana}
 
 This document requires several new registrations:
 
@@ -602,14 +602,15 @@ Actually, our `ECHUpdateMethodType` enum has values 1,2,3 (not bitmask, but actu
 - In `ech_update_auth.methods` (bitmask), bits 0x01,0x02,0x04 correspond to those.
 - In the handshake extension’s `method` field (ECHUpdateMethodType), we gave them as 1=TOFU,2=PKIX,3=DNSSEC. We can have IANA register these numeric codepoints similarly, likely in the same registry or separate.
 
-Perhaps define one registry "ECH Config Update Methods" where:
- Codepoint | Name | Description | Reference
- 1 | TOFU | Update signed with pinned key (trust on first use) | [This doc]
- 2 | PKIX | Update signed with PKIX certificate | [This doc]
- 3 | DNSSEC | Update authenticated via DNSSEC proof | [This doc]
- 4 | (Reserved for public name mapping auth) | (do not use) | [This doc]
- 5-255 | Unassigned | | 
-and specify that the bitmask in ech_update_auth corresponds to these values as flags (bit position equal to value). Possibly mention that value 0 is not used.
+Perhaps define one registry "ECH Config Update Methods" with initial assignments:
+
+- Codepoint 1 — TOFU: Update signed with pinned key (trust on first use)
+- Codepoint 2 — PKIX: Update signed with PKIX certificate
+- Codepoint 3 — DNSSEC: Update authenticated via DNSSEC proof
+- Codepoint 4 — Reserved for public name mapping auth (do not use)
+- Codepoints 5–255 — Unassigned
+
+The bitmask in `ech_update_auth` corresponds to these values as flags (bit position equal to codepoint). Value 0 is not used.
 
 Actually, setting up this registry is wise to avoid collisions if future docs define new methods.
 
@@ -623,14 +624,14 @@ So summarizing IANA:
 
 We ensure to mention the reserved codepoint for NOPE-style (value 4 in registry, flag 0x08).
 
-## State Machine and Retry {#state-machine}
+# State Machine and Retry {#state-machine}
 
 TBD.
 
-## Deployment Considerations {#deployment-considerations}
+# Deployment Considerations {#deployment-considerations}
 
 TBD.
 
-## Reserved Code Points {#reserved-nope}
+# Reserved Code Points {#reserved-nope}
 
 TBD.
