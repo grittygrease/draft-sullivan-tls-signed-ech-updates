@@ -1197,7 +1197,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
             <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-design-details-and-wire-for" class="internal xref">Design Details and Wire Formats</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
-            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-echconfig-metadata-ech_upda" class="internal xref">ECHConfig Metadata: <code>ech_update_auth</code> (ECHConfig extension)</a></p>
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-ech-update-authentication-e" class="internal xref">ECH update authentication (<code>ech_update_auth</code>)</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
             <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-clienthello-extension-for-u" class="internal xref">ClientHello Extension for Update Method Support</a></p>
@@ -1331,10 +1331,10 @@ This method bootstraps trust in ECH keys from the global DNSSEC hierarchy rather
 <p id="section-4-1">This section specifies the new extensions and data structures in detail. All multi-byte values are in network byte order (big-endian). The syntax uses the TLS presentation language from <span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span>.<a href="#section-4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="echconfig-metadata-echupdateauth-echconfig-extension">
+<div id="ech-update-authentication-echupdateauth">
 <section id="section-5">
-      <h2 id="name-echconfig-metadata-ech_upda">
-<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-echconfig-metadata-ech_upda" class="section-name selfRef">ECHConfig Metadata: <code>ech_update_auth</code> (ECHConfig extension)</a>
+      <h2 id="name-ech-update-authentication-e">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-ech-update-authentication-e" class="section-name selfRef">ECH update authentication (<code>ech_update_auth</code>)</a>
       </h2>
 <p id="section-5-1">The <code>ech_update_auth</code> information is carried as an ECHConfig extension inside the ECHConfig structure. The ECH specification <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span> allows ECHConfigContents to include extensions identified by a 16-bit type. This document defines a new ECHConfigExtensionType (<code>ech_update_auth</code>) with a suggested code point TBD1 (to be assigned from the "ECH Config Extension Type" registry). When present, this metadata advertises how the server will authenticate future updates to this ECHConfig (e.g., methods and pins). The actual authenticated update is conveyed in TLS via the <code>ech_config_update</code> extension (see the following section) and not via <code>ech_update_auth</code>.<a href="#section-5-1" class="pilcrow">¶</a></p>
 <p id="section-5-2">The <code>ech_update_auth</code> extension data has the following structure:<a href="#section-5-2" class="pilcrow">¶</a></p>

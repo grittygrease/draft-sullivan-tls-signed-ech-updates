@@ -98,7 +98,7 @@ Table of Contents
    2.  Conventions and Definitions
    3.  ECH Update Auth ECH Extension
    4.  Design Details and Wire Formats
-   5.  ECHConfig Metadata: ech_update_auth (ECHConfig extension)
+   5.  ECH update authentication (ech_update_auth)
    6.  ClientHello Extension for Update Method Support
    7.  TLS EncryptedExtension: ech_config_update
    8.  Client Processing
@@ -357,7 +357,7 @@ Table of Contents
    endian).  The syntax uses the TLS presentation language from
    [RFC8446].
 
-5.  ECHConfig Metadata: ech_update_auth (ECHConfig extension)
+5.  ECH update authentication (ech_update_auth)
 
    The ech_update_auth information is carried as an ECHConfig extension
    inside the ECHConfig structure.  The ECH specification
