@@ -219,9 +219,9 @@ Table of Contents
        Clients that have seen and stored these SPKI fingerprints will
        accept a new ECHConfigList only if it carries a valid digital
        signature made with one of the pinned keys.  This provides a
-       continuity-of-trust model: the first ECHConfig must be obtained
-       securely (e.g., via DNSSEC or PKIX), after which updates can be
-       authenticated by the pinned key without further external
+       continuity-of-trust model: the initial SPKI pin is conveyed by
+       the first ECHConfig the client obtains, after which updates can
+       be authenticated by the pinned key without further external
        validation.  Clients never advertise nor transmit anchors; they
        may cache pins implicitly.
 
