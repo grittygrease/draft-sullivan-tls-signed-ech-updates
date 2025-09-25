@@ -20,10 +20,11 @@ Abstract
    an authenticated mechanism for in-band delivery and rotation of ECH
    configurations.
 
-   A new TLS 1.3 encrypted extension, ech_config_update, allows servers
-   to push updated ECHConfigList values to clients during a handshake.
-   Authenticity is ensured via digital signatures or proofs.  ECHConfig
-   objects are treated as signed artifacts using one of three methods:
+   A server can push updated ECHConfigList values to clients during a
+   handshake (HRR/EE), carrying signed ECHConfigs.  Authenticity is
+   ensured via embedded signatures in the unified ech_auth ECHConfig
+   extension.  ECHConfig objects are treated as signed artifacts using
+   one of three methods:
 
    1.  A Raw Public Key (RPK) pinned via a hash in the ECH config
 
@@ -99,10 +100,10 @@ Table of Contents
    3.  Mechanism Overview
    4.  Protocol Overview
    5.  Protocol Elements
-     5.1.  ECH update authentication (ech_update_auth)
+     5.1.  ECH authentication extension (ech_auth)
      5.2.  TLS extensions for ECH config update
-       5.2.1.  ClientHello: encrypted_client_hello_update_support
-       5.2.2.  EncryptedExtensions: ech_config_update
+       5.2.1.  ClientHello signaling
+       5.2.2.  EncryptedExtensions / HelloRetryRequest carriage
      5.3.  Processing
        5.3.1.  Client processing
        5.3.2.  Overview
@@ -341,20 +342,19 @@ Table of Contents
    endpoint[I-D.ietf-tls-esni], or via some provisioning protocol, the
    subsequent updates use the same verification process.
 
-   The rest of this document is organized as follows.  Section Design
-   Details and Wire Format (Section 5) defines the new TLS extension
-   ech_config_update and its structure, along with the ClientHello
-   extension and the ECHConfig ech_update_auth extension.
-   Section Client and Server Behavior describes the state machine and
-   processing rules for clients and servers, including how to handle
-   retry handshakes and how to apply updates.  Section Security
-   Considerations (Section 7) discusses the security properties of this
-   mechanism, including trust on first use risks, replay and freshness,
-   and privacy implications.  Section IANA Considerations (Section 9)
-   allocates the necessary extension code points and an EKU OID for
-   ECHConfig signing.  Finally, Appendix A provides an example of a DNS
-   record and a TLS handshake carrying an ECH config update, and
-   Appendix B offers a deployment checklist for implementers.
+   The rest of this document is organized as follows.  Section Protocol
+   Elements (Section 5) defines the unified ECHConfig extension ech_auth
+   and how signed ECHConfigs are carried in HRR/EE.  Section Client and
+   Server Behavior describes the state machine and processing rules for
+   clients and servers, including how to handle retry handshakes and how
+   to apply updates.  Section Security Considerations (Section 7)
+   discusses the security properties of this mechanism, including trust
+   on first use risks, replay and freshness, and privacy implications.
+   Section IANA Considerations (Section 9) allocates the necessary code
+   points and an EKU OID for ECHConfig signing.  Finally, Appendix A
+   provides an example of a DNS record and a TLS handshake carrying an
+   ECH config update, and Appendix B offers a deployment checklist for
+   implementers.
 
 4.  Protocol Overview
 
@@ -368,55 +368,68 @@ Table of Contents
    endian).  The syntax uses the TLS presentation language from
    [RFC8446].
 
-5.1.  ECH update authentication (ech_update_auth)
+5.1.  ECH authentication extension (ech_auth)
 
-   The ech_update_auth information is carried as an ECHConfig extension
-   inside the ECHConfig structure.  The ECH specification
-   [I-D.ietf-tls-esni] allows ECHConfigContents to include extensions
-   identified by a 16-bit type.  This document defines a new
-   ECHConfigExtensionType (ech_update_auth) with a suggested code point
-   TBD1 (to be assigned from the "ECH Config Extension Type" registry).
-   When present, this metadata advertises how the server will
-   authenticate future updates to this ECHConfig (e.g., methods and
-   pins).  The actual authenticated update is conveyed in TLS via the
-   ech_config_update extension (see the following section) and not via
-   ech_update_auth.
+   The ech_auth information is carried as an ECHConfig extension inside
+   the ECHConfig structure and is used both when distributed via DNS and
+   when delivered in TLS (HRR/EE) as part of retry_configs.  This single
+   extension conveys policy (which signature methods and pins are
+   supported) and, when present, one or more signed authenticators that
+   allow clients to verify and install the ECHConfig immediately.
 
-   The ech_update_auth extension data has the following structure:
+   The ech_auth extension has the following structure:
 
-   enum { none(0), rpk(1), pkix(2), dnssec(4), reserved(8), (255) }
-   ECHUpdateAuthMethodFlags; // Values of ECHUpdateAuthMethodFlags are
-   bit flags that can be ORed. // e.g., a value of 3 (binary 0011)
-   indicates support for both rpk (1) and pkix (2). opaque
-   SPKIHash<0..255>; // SHA-256 hash of an SPKI (SubjectPublicKeyInfo)
-   struct { uint8 methods; // Bitwise OR of one or more
-   ECHUpdateAuthMethodFlags SPKIHash trusted_keys<0..255>; }
-   ECHUpdateAuth;
+   ``` enum { none(0), rpk(1), pkix(2), dnssec(4), reserved(8), (255) }
+   ECHAuthMethodFlags; // Bit flags; e.g., 0x03 indicates rpk | pkix.
 
-   *methods*: A bitmask indicating which update authentication methods
-   the server supports for this ECH configuration.  The bits correspond
-   to: 0x01 = RPK (Raw Public Key via SPKI pin), 0x02 = PKIX
-   (Certificate-based), 0x04 = DNSSEC, and 0x08 = reserved for future
-   use.  Bits beyond 0x08 are currently unassigned and MUST be zero.  A
-   client MUST ignore any value of methods that contains bits it does
-   not recognize, except that it MUST NOT accept an update using a
-   method it does not understand or did not agree to.
+   opaque SPKIHash<0..255>; // SHA-256 over DER-encoded
+   SubjectPublicKeyInfo
 
-   *trusted_keys*: A vector of hashes of public keys (each hash is 32
-   bytes for SHA-256, defined below).  This list is used only by the RPK
-   method.  Each element is the SHA-256 digest of a DER-encoded
-   SubjectPublicKeyInfo (SPKI) of a key that is authorized to sign
-   updates for this ECHConfig.  The keys corresponding to these hashes
-   are not further restricted by this specification (for instance, they
-   need not correspond to the key in the current ECHConfig itself; they
-   are separate keys chosen by the server operator for signing updates).
-   Clients MUST ignore trusted_keys for PKIX and DNSSEC methods.  The
-   list may be empty if the RPK method is not used or if no keys are
-   pinned (e.g., if only PKIX or DNSSEC methods are supported).  If the
-   methods bitmask includes the rpk(1) bit, then the trusted_keys vector
-   MUST contain at least one SPKI hash.  If the rpk bit is not set,
-   trusted_keys MUST be zero-length (i.e., no RPK pins are advertised).
-   There is no significance to the ordering of hashes in the list.
+   struct { uint8 methods; // Bitmask using ECHAuthMethodFlags SPKIHash
+   trusted_keys<0..255>; // RPK-only; zero-length if rpk bit not set
+
+   // Zero or more signed authenticators.  Present when the sender
+   wishes // to provide a signed ECHConfig (e.g., in TLS retry_configs,
+   or pre-signed in DNS).  struct { uint8 method; // 1=rpk, 2=pkix,
+   3=dnssec opaque authenticator<1..2^16-1>; // method-specific material
+   (see below) uint64 not_before; // POSIX time (seconds) uint64
+   not_after; // POSIX time (seconds) SignatureScheme algorithm; opaque
+   signature<1..2^16-1>; } signatures<0..255>; } ECHAuth; ```
+
+   Signature input and best practices:
+
+   The signature in each entry of signatures is computed over the
+   concatenation:
+
+   context_label = "TLS-ECH-AUTH-v1" // ASCII, no NUL to_be_signed =
+   context_label || ECHConfigContents || methods || trusted_keys ||
+   method || authenticator || not_before || not_after
+
+   Including a fixed, scheme-specific context label prevents cross-
+   protocol reuse; covering the entire ECHConfigContents and all
+   ech_auth fields (except the signature itself) ensures integrity of
+   parameters and pins. not_before/not_after bound the object’s validity
+   and limit replay.
+
+   Method-specific authenticator: - RPK (method=1): the DER-encoded
+   SubjectPublicKeyInfo (SPKI) of the signing key.  The client MUST
+   verify that the SPKI hash matches one in trusted_keys and then verify
+   the signature with this key. - PKIX (method=2): a CertificateEntry
+   vector (leaf + optional intermediates) as in TLS 1.3 Certificate; the
+   leaf MUST include the ECH-config-signing EKU and be valid for the
+   ECHConfig public_name.  The client validates the chain and then
+   verifies the signature with the leaf key. - DNSSEC (method=3): a
+   proof blob sufficient to validate that the ECHConfig (or an RRset
+   containing it) was published by the owner of public_name within its
+   validity window (e.g., DNSKEY/DS/RRSIG records).  The client
+   validates the proof (including inception/expiry) and that it
+   authenticates the same ECHConfigContents bytes.
+
+   Notes: - trusted_keys is only used by RPK; clients MUST ignore it for
+   PKIX and DNSSEC. - If the rpk(1) bit is set, trusted_keys MUST
+   contain at least one SPKI hash; otherwise it MUST be zero-length. - A
+   sender MAY include multiple signature entries (e.g., both PKIX and
+   RPK) to maximize client compatibility.
 
    The SPKI hash function is SHA-256.  The rationale for using a hash
    rather than the full SPKI is to keep the extension compact in DNS and
@@ -476,119 +489,21 @@ Table of Contents
 
 5.2.  TLS extensions for ECH config update
 
-5.2.1.  ClientHello: encrypted_client_hello_update_support
+5.2.1.  ClientHello signaling
 
-   A new TLS extension type is defined for the client to indicate
-   support for authenticated ECH config updates:
-   encrypted_client_hello_update_support (name TBA).  This is a
-   *ClientHello* extension (it is not meaningful in ServerHello).  We
-   suggest a code point of TBD2 for this extension (to be assigned from
-   the TLS ExtensionType registry).  The extension data in the
-   ClientHello is:
+   ClientHello signaling for ECH update support is removed.  Servers
+   choose one or more methods and deliver signed ECHConfigs in HRR/EE
+   using the unified ech_auth carried inside ECHConfig.  Implementations
+   MAY still use policy to prefer compact authenticators (e.g., RPK) in
+   HRR where size is constrained.
 
-   struct { uint8 supported_methods; // Bitmask using
-   ECHUpdateAuthMethodFlags } ECHConfigUpdateSupport;
+5.2.2.  EncryptedExtensions / HelloRetryRequest carriage
 
-   *Contents:* supported_methods is a single byte whose bits indicate
-   the authentication methods the client can validate, using the same
-   flag values as described for ECHUpdateAuthMethodFlags above
-   (RPK=0x01, PKIX=0x02, DNSSEC=0x04).  The client MUST NOT set any bits
-   to 1 that were not present in the methods field of the ECHConfig it
-   is using for this connection.  In other words, this is an
-   intersection of the server's advertised methods and the client's
-   capabilities.  If the client has no prior ECHConfig (e.g., in an
-   opportunistic scenario where it is probing for ECH support via a
-   GREASE extension[I-D.ietf-tls-esni]), it SHOULD NOT send this
-   extension, since it does not know any server preferences.  If the
-   client has a cached ECHConfig but it contained no ech_update_auth
-   extension (meaning the server does not support this update
-   mechanism), the client MUST NOT send this extension.
-
-   When a client offers ECH (i.e., sends the "encrypted_client_hello"
-   extension in ClientHelloOuter as defined in [I-D.ietf-tls-esni]), it
-   SHOULD include the ECHConfigUpdateSupport extension in the *outer*
-   ClientHello (ClientHelloOuter), not in the inner.  This ensures that
-   even if the server cannot decrypt the ClientHelloInner (due to an
-   unknown or outdated ECHConfig), it can still see the client's support
-   for updates in the outer handshake.  If ECH is accepted, the server
-   will also be able to see the outer extension (since it receives the
-   outer ClientHello as well, even though it primarily processes the
-   inner one for handshake purposes).  Including it in the inner
-   ClientHelloInner is unnecessary and not recommended, to avoid
-   ambiguity.  Clients MUST NOT include the extension in both inner and
-   outer; they SHOULD include it only in the outer ClientHello in an ECH
-   trial handshake.  (If a future version of ECH allows encrypted client
-   indications of update support, this recommendation might be
-   revisited, but in the current design outer inclusion is sufficient.)
-
-   If a client is not offering ECH at all (for instance, connecting to a
-   host for which it has no ECHConfig), it typically would not include
-   this extension.  However, an advanced client implementation MAY
-   include ECHConfigUpdateSupport even without an ECH extension, as a
-   way to indicate "I support in-band ECH config updates if you (server)
-   have one to offer."  This could be useful for opportunistic
-   bootstrapping: a server receiving such an extension from a client
-   that did not use ECH might choose to respond with an
-   ech_config_update in EncryptedExtensions (using PKIX or DNSSEC
-   method) to supply the client with an ECHConfig for future use.  Such
-   behavior is OPTIONAL.  Clients who send update support without
-   offering ECH should take care that the supported_methods value is
-   based on some policy (e.g., their global capabilities or expected
-   server's capabilities).  In general, this usage is experimental and
-   not mandated by this specification, but it is left possible for
-   future expansion.
-
-   *Server handling of client's extension:* If the server receives a
-   ClientHello (outer) containing the ECHConfigUpdateSupport extension
-   and the server has a new ECHConfigList that it wishes to provide, it
-   SHOULD decide on an authentication method as follows: - The server
-   MUST pick one method that is among those indicated by the client and
-   also allowed by the current ECHConfig's ech_update_auth.methods.
-   (For example, if the server's ECHConfig advertises methods = {RPK,
-   PKIX}, and the client indicates support for {PKIX, DNSSEC}, the
-   intersection is {PKIX} – the server should use PKIX in this case.  If
-   no intersection exists, the server must not send an update
-   extension.) - The server SHOULD prefer the method that it considers
-   most secure or appropriate for the client.  The relative preference
-   may vary by implementation or policy.  For instance, if DNSSEC is
-   available and the client supports it, the server might choose DNSSEC
-   because it leverages global trust anchors and avoids custom
-   certificates or pins.  Alternatively, a server might prefer RPK if it
-   has an established pin with the client (for example, in a long-
-   running deployment where clients have cached the pin and the operator
-   wants to avoid CA or DNS dependencies).  If the server sends
-   ech_config_update in HelloRetryRequest, it SHOULD ensure the update
-   object size is suitable for early handshake flights (to avoid QUIC/
-   DTLS amplification or fragmentation issues). - If multiple methods
-   are equally acceptable, the server can choose any.  This
-   specification does not impose a strict preference, but for
-   consistency, an implementation might define an order (e.g., DNSSEC >
-   PKIX > RPK, or vice versa).  All things being equal, using a method
-   that does not require transmitting large certificates or multiple DNS
-   records might be more efficient (RPK signatures are small, whereas
-   DNSSEC proofs can be larger; PKIX includes a certificate chain which
-   can also be large).  Servers can take message size into account if
-   fragmentation or handshake size is a concern.
-
-   Once the server selects a method, it prepares the ech_config_update
-   extension to send, as described next.
-
-5.2.2.  EncryptedExtensions: ech_config_update
-
-   We define a new extension type ech_config_update (with code point
-   TBD3) which is used by the server in the EncryptedExtensions message.
-   The server MUST NOT send this extension unless the handshake is a TLS
-   1.3 (or higher) handshake where the client indicated support via
-   ECHConfigUpdateSupport and the server is configured with an updated
-   ECHConfigList to provide.  If those conditions are met, the server
-   MAY send the extension.  There is no separate signal in the
-   ServerHello; it appears in EncryptedExtensions and MAY also appear in
-   HelloRetryRequest (HRR).  (Presence or absence of this extension does
-   not alter the TLS handshake flow for key agreement or certificate
-   exchange, except as noted for fallback in Section State Machine
-   Impact (Section 10).)
-
-   The extension data for ech_config_update is structured as follows:
+   This specification reuses the ECH retry_configs carriage: the server
+   delivers an ECHConfigList where each ECHConfig contains the unified
+   ech_auth extension.  The server MAY include multiple signed
+   ECHConfigs (e.g., one with PKIX and one with RPK).  There is no
+   separate TLS extension for negotiation.
 
    enum { method_rpk(1), method_pkix(2), method_dnssec(3), (255) }
    ECHUpdateMethodType; // These values are distinct from the bit flags
