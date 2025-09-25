@@ -5,9 +5,9 @@
 TLS                                                          N. Sullivan
 Internet-Draft                               Cryptography Consulting LLC
 Intended status: Standards Track                              M. Thomson
-Expires: 28 March 2026                                        D. Jackson
+Expires: 29 March 2026                                        D. Jackson
                                                                  Mozilla
-                                                       24 September 2025
+                                                       25 September 2025
 
 
            Authenticated ECH Config Distribution and Rotation
@@ -76,7 +76,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 28 March 2026.
+   This Internet-Draft will expire on 29 March 2026.
 
 Copyright Notice
 
@@ -99,14 +99,15 @@ Table of Contents
    3.  Protocol Overview
    4.  Protocol Elements
      4.1.  ECH update authentication (ech_update_auth)
-     4.2.  ClientHello Extension for Update Method Support
-     4.3.  TLS EncryptedExtension: ech_config_update
-     4.4.  Processing
-       4.4.1.  Client processing
-       4.4.2.  Overview
-       4.4.3.  Server processing
-       4.4.4.  Client behavior
-       4.4.5.  Public name authentication for retry
+     4.2.  TLS extensions for ECH config update
+       4.2.1.  ClientHello: encrypted_client_hello_update_support
+       4.2.2.  EncryptedExtensions: ech_config_update
+     4.3.  Processing
+       4.3.1.  Client processing
+       4.3.2.  Overview
+       4.3.3.  Server processing
+       4.3.4.  Client behavior
+       4.3.5.  Public name authentication for retry
    5.  Example Exchange (Informative)
    6.  Security Considerations
    7.  Privacy Considerations
@@ -213,7 +214,7 @@ Table of Contents
    which required a valid certificate for any public name
    used[I-D.ietf-tls-esni].  Now, the public name authentication can be
    achieved by proving possession of the pinned key.  Section Public
-   Name Authentication (Section 4.4.5) describes how this applies to ECH
+   Name Authentication (Section 4.3.5) describes how this applies to ECH
    retry handshakes. - *Faster and safer key rotation*: The server can
    proactively push a new ECHConfig to clients shortly before rotating
    keys, ensuring clients receive it immediately.  The update objects
@@ -380,7 +381,9 @@ Table of Contents
    can produce a timely proof.  (Including stale or incorrect DNSSEC
    data in an update will cause clients to ignore the update.)
 
-4.2.  ClientHello Extension for Update Method Support
+4.2.  TLS extensions for ECH config update
+
+4.2.1.  ClientHello: encrypted_client_hello_update_support
 
    A new TLS extension type is defined for the client to indicate
    support for authenticated ECH config updates:
@@ -474,7 +477,7 @@ Table of Contents
    Once the server selects a method, it prepares the ech_config_update
    extension to send, as described next.
 
-4.3.  TLS EncryptedExtension: ech_config_update
+4.2.2.  EncryptedExtensions: ech_config_update
 
    We define a new extension type ech_config_update (with code point
    TBD3) which is used by the server in the EncryptedExtensions message.
@@ -871,9 +874,9 @@ Table of Contents
    advertising methods until it has a real ECHConfig from the server;
    but that is an implementation policy issue.
 
-4.4.  Processing
+4.3.  Processing
 
-4.4.1.  Client processing
+4.3.1.  Client processing
 
    The client's extension (let us call it the "ECH Config Update
    Support" extension) carries a bitmask of methods (RPK, PKIX, DNSSEC)
@@ -989,13 +992,13 @@ Table of Contents
    normally.  Thus, incremental deployment is possible. ## Behavior
    {#behavior}
 
-4.4.2.  Overview
+4.3.2.  Overview
 
    This section describes how the above structures are used in practice
    during a TLS handshake, including error handling and interactions
    with ECH retry (fallback) behavior.
 
-4.4.3.  Server processing
+4.3.3.  Server processing
 
    *On initial connection (full handshake, client offered ECH):* When a
    server receives a ClientHello that contains an
@@ -1083,7 +1086,7 @@ Table of Contents
          if the RPK method is in use and the presented certificate's
          public key matches one of the pinned trusted_keys, the client
          MAY accept the certificate even if it's not signed by a CA (see
-         Section Public Name Authentication (Section 4.4.5)).
+         Section Public Name Authentication (Section 4.3.5)).
          Otherwise, the certificate must be validated normally (which
          requires that the public name be something for which the server
          has a valid cert).
@@ -1158,7 +1161,7 @@ Table of Contents
    verify and see it's the same it already has.  But to save bandwidth,
    it might only send when there's a difference or an upcoming rotation.
 
-4.4.4.  Client behavior
+4.3.4.  Client behavior
 
    *Before connection (config retrieval):* The client obtains an
    ECHConfig for the server (via DNS SVCB/HTTPS RR, .well-known URI, or
@@ -1286,7 +1289,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
          o  So likely, the client should abort and maybe wait or try
             again later.
 
-4.4.5.  Public name authentication for retry
+4.3.5.  Public name authentication for retry
 
    As mentioned, one advantage of this framework is the ability to
    authenticate fallback connections via a pinned key rather than a CA-
