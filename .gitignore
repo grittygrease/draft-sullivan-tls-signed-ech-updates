@@ -22,3 +22,6 @@ draft-sullivan-tls-signed-ech-updates.xml
 package-lock.json
 report.xml
 !requirements.txt
+.DS_Store
+*.bak
+new.md
