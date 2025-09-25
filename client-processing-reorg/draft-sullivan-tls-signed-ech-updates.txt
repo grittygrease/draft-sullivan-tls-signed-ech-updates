@@ -96,27 +96,28 @@ Table of Contents
 
    1.  Introduction
    2.  Conventions and Definitions
-   3.  Protocol Overview
-   4.  Protocol Elements
-     4.1.  ECH update authentication (ech_update_auth)
-     4.2.  TLS extensions for ECH config update
-       4.2.1.  ClientHello: encrypted_client_hello_update_support
-       4.2.2.  EncryptedExtensions: ech_config_update
-     4.3.  Processing
-       4.3.1.  Client processing
-       4.3.2.  Overview
-       4.3.3.  Server processing
-       4.3.4.  Client behavior
-       4.3.5.  Public name authentication for retry
-   5.  Example Exchange (Informative)
-   6.  Security Considerations
-   7.  Privacy Considerations
-   8.  IANA Considerations
-   9.  Retry State Machine
-   10. Deployment Considerations
-   11. References
-     11.1.  Normative References
-     11.2.  Informative References
+   3.  Mechanism Overview
+   4.  Protocol Overview
+   5.  Protocol Elements
+     5.1.  ECH update authentication (ech_update_auth)
+     5.2.  TLS extensions for ECH config update
+       5.2.1.  ClientHello: encrypted_client_hello_update_support
+       5.2.2.  EncryptedExtensions: ech_config_update
+     5.3.  Processing
+       5.3.1.  Client processing
+       5.3.2.  Overview
+       5.3.3.  Server processing
+       5.3.4.  Client behavior
+       5.3.5.  Public name authentication for retry
+   6.  Example Exchange (Informative)
+   7.  Security Considerations
+   8.  Privacy Considerations
+   9.  IANA Considerations
+   10. Retry State Machine
+   11. Deployment Considerations
+   12. References
+     12.1.  Normative References
+     12.2.  Informative References
    Authors' Addresses
 
 1.  Introduction
@@ -200,6 +201,93 @@ Table of Contents
    process (chain building, signature and expiration checking, name
    matching, etc.), unless otherwise specified.
 
+3.  Mechanism Overview
+
+   In this mechanism, each ECHConfig (as defined in [I-D.ietf-tls-esni])
+   may carry an ech_update_auth extension that specifies how the
+   configuration can be updated in the future.  This extension includes
+   a bitmask of supported authentication methods.  The three
+   authentication methods defined in this document are:
+
+   1.  Raw Public Key (RPK) – The ECHConfig is "pinned" to one or more
+       public keys designated by the server for future updates.
+       Specifically, the ech_update_auth extension can list one or more
+       hashes of Subject Public Key Info (SPKI) values.  The server
+       possesses the corresponding private key(s) and will use one of
+       them to sign any subsequent ECHConfigList updates.  The update
+       object MUST include the signer SPKI (or equivalent raw public
+       key) so the client can hash and compare against pins.
+
+       Clients that have seen and stored these SPKI fingerprints will
+       accept a new ECHConfigList only if it carries a valid digital
+       signature made with one of the pinned keys.  This provides a
+       continuity-of-trust model: the initial SPKI pin is conveyed by
+       the first ECHConfig the client obtains, after which updates can
+       be authenticated by the pinned key without further external
+       validation.  Clients never advertise nor transmit anchors; they
+       may cache pins implicitly.
+
+       No key identifier is used in the update object – clients simply
+       try the candidate public keys from the pin list until one
+       produces a valid signature.  This avoids exposing key IDs on the
+       wire and reduces complexity.  The update signature object
+       includes its own validity interval (e.g., not-before and not-
+       after timestamps), so explicit expiration or TTLs in DNS records
+       are not required; the signature itself carries the time window
+       during which the update is valid.
+
+   2.  PKIX (Certificate-Based) – The ECHConfigList update is signed
+       using a private key for which the server can present a
+       certificate chain.  In the update message, the server includes an
+       X.509 certificate (and any intermediates as needed) that chains
+       to a trusted root.  The certificate must contain a new Extended
+       Key Usage (EKU) indicating authority to sign ECH configurations.
+
+       The certificate's subject must cover the ECH public name (i.e.,
+       the plaintext SNI used for ECH) to prove that the signer is
+       authoritative for that name.  A client validates this method by
+       verifying the certificate chain, checking the EKU, confirming the
+       public name in the certificate, and then verifying the signature
+       over the ECHConfigList using the certified public key.
+
+       This method leverages the existing Web PKI trust model for
+       authentication but uses a dedicated EKU to constrain the
+       certificate's usage to ECH key management.  It allows integration
+       with traditional CAs for operators that prefer that, and it uses
+       standard certificate validation procedures as defined in TLS.
+
+   3.  DNSSEC – The ECHConfigList is authenticated using the Domain Name
+       System Security Extensions.  In this method, the server provides
+       a recent DNS record (or record set) that conveys the
+       ECHConfigList (for example, an HTTPS RR with an ech SvcParam)
+       along with the DNSSEC signatures and necessary proof chain
+       (DNSKEY and DS records) needed for validation.
+
+       The client performs DNSSEC validation on the provided records to
+       ensure they were published by the owner of the domain name (the
+       public name) and are current.  If validation succeeds, the
+       ECHConfigList contained in the DNS record is considered
+       authentic.
+
+       This method bootstraps trust in ECH keys from the global DNSSEC
+       hierarchy rather than the Web PKI or a pinned key.  It is
+       especially useful for clients or deployments that already rely on
+       DNSSEC-validating resolvers, and it aligns with the existing DNS-
+       based ECH bootstrap mechanism in which authoritative DNS records
+       carry the ECHConfigList[I-D.ietf-tls-esni].  Here, however, the
+       proof is delivered in-band to the client, removing dependence on
+       the client's local resolver for authenticity.
+
+   The server can indicate support for one or multiple of these methods
+   by listing them in the ech_update_auth extension of its ECHConfig.
+   For example, a configuration could specify that updates might be
+   authenticated via either the RPK method or DNSSEC, allowing
+   flexibility depending on client capabilities.  The presence of
+   ech_update_auth in an ECHConfig signals to the client that the server
+   is willing to send authenticated config updates using the specified
+   method(s).
+
+
    By treating ECH configurations as signed objects, this mechanism
    *decouples trust in ECH keys from the TLS handshake's certificate
    validation of the origin*. In particular, it enables scenarios such
@@ -214,7 +302,7 @@ Table of Contents
    which required a valid certificate for any public name
    used[I-D.ietf-tls-esni].  Now, the public name authentication can be
    achieved by proving possession of the pinned key.  Section Public
-   Name Authentication (Section 4.3.5) describes how this applies to ECH
+   Name Authentication (Section 5.3.5) describes how this applies to ECH
    retry handshakes. - *Faster and safer key rotation*: The server can
    proactively push a new ECHConfig to clients shortly before rotating
    keys, ensuring clients receive it immediately.  The update objects
@@ -250,33 +338,33 @@ Table of Contents
    subsequent updates use the same verification process.
 
    The rest of this document is organized as follows.  Section Design
-   Details and Wire Format (Section 4) defines the new TLS extension
+   Details and Wire Format (Section 5) defines the new TLS extension
    ech_config_update and its structure, along with the ClientHello
    extension and the ECHConfig ech_update_auth extension.
    Section Client and Server Behavior describes the state machine and
    processing rules for clients and servers, including how to handle
    retry handshakes and how to apply updates.  Section Security
-   Considerations (Section 6) discusses the security properties of this
+   Considerations (Section 7) discusses the security properties of this
    mechanism, including trust on first use risks, replay and freshness,
-   and privacy implications.  Section IANA Considerations (Section 8)
+   and privacy implications.  Section IANA Considerations (Section 9)
    allocates the necessary extension code points and an EKU OID for
    ECHConfig signing.  Finally, Appendix A provides an example of a DNS
    record and a TLS handshake carrying an ECH config update, and
    Appendix B offers a deployment checklist for implementers.
 
-3.  Protocol Overview
+4.  Protocol Overview
 
    This section provides a high-level walkthrough of the mechanism and
    how the pieces fit together.
 
-4.  Protocol Elements
+5.  Protocol Elements
 
    This section specifies the new extensions and data structures in
    detail.  All multi-byte values are in network byte order (big-
    endian).  The syntax uses the TLS presentation language from
    [RFC8446].
 
-4.1.  ECH update authentication (ech_update_auth)
+5.1.  ECH update authentication (ech_update_auth)
 
    The ech_update_auth information is carried as an ECHConfig extension
    inside the ECHConfig structure.  The ECH specification
@@ -368,7 +456,7 @@ Table of Contents
    generating a new ECHConfig with an updated list and distributing it
    out-of-band or via an update.) - If pkix bit is set, the server must
    have a valid certificate (and chain) for the public name with the ECH
-   config signing EKU (Section IANA Considerations (Section 8) defines
+   config signing EKU (Section IANA Considerations (Section 9) defines
    the EKU) available at runtime to use for signing.  The certificate's
    public key algorithm dictates what signature algorithms are possible.
    - If dnssec bit is set, the server must have access to DNSSEC signing
@@ -381,9 +469,9 @@ Table of Contents
    can produce a timely proof.  (Including stale or incorrect DNSSEC
    data in an update will cause clients to ignore the update.)
 
-4.2.  TLS extensions for ECH config update
+5.2.  TLS extensions for ECH config update
 
-4.2.1.  ClientHello: encrypted_client_hello_update_support
+5.2.1.  ClientHello: encrypted_client_hello_update_support
 
    A new TLS extension type is defined for the client to indicate
    support for authenticated ECH config updates:
@@ -463,21 +551,24 @@ Table of Contents
    certificates or pins.  Alternatively, a server might prefer RPK if it
    has an established pin with the client (for example, in a long-
    running deployment where clients have cached the pin and the operator
-   wants to avoid CA or DNS dependencies). - If multiple methods are
-   equally acceptable, the server can choose any.  This specification
-   does not impose a strict preference, but for consistency, an
-   implementation might define an order (e.g., DNSSEC > PKIX > RPK, or
-   vice versa).  All things being equal, using a method that does not
-   require transmitting large certificates or multiple DNS records might
-   be more efficient (RPK signatures are small, whereas DNSSEC proofs
-   can be larger; PKIX includes a certificate chain which can also be
-   large).  Servers can take message size into account if fragmentation
-   or handshake size is a concern.
+   wants to avoid CA or DNS dependencies).  If the server sends
+   ech_config_update in HelloRetryRequest, it SHOULD ensure the update
+   object size is suitable for early handshake flights (to avoid QUIC/
+   DTLS amplification or fragmentation issues). - If multiple methods
+   are equally acceptable, the server can choose any.  This
+   specification does not impose a strict preference, but for
+   consistency, an implementation might define an order (e.g., DNSSEC >
+   PKIX > RPK, or vice versa).  All things being equal, using a method
+   that does not require transmitting large certificates or multiple DNS
+   records might be more efficient (RPK signatures are small, whereas
+   DNSSEC proofs can be larger; PKIX includes a certificate chain which
+   can also be large).  Servers can take message size into account if
+   fragmentation or handshake size is a concern.
 
    Once the server selects a method, it prepares the ech_config_update
    extension to send, as described next.
 
-4.2.2.  EncryptedExtensions: ech_config_update
+5.2.2.  EncryptedExtensions: ech_config_update
 
    We define a new extension type ech_config_update (with code point
    TBD3) which is used by the server in the EncryptedExtensions message.
@@ -486,10 +577,11 @@ Table of Contents
    ECHConfigUpdateSupport and the server is configured with an updated
    ECHConfigList to provide.  If those conditions are met, the server
    MAY send the extension.  There is no separate signal in the
-   ServerHello; it appears only in EncryptedExtensions.  (Presence or
-   absence of this extension does not alter the TLS handshake flow for
-   key agreement or certificate exchange, except as noted for fallback
-   in Section State Machine Impact (Section 9).)
+   ServerHello; it appears in EncryptedExtensions and MAY also appear in
+   HelloRetryRequest (HRR).  (Presence or absence of this extension does
+   not alter the TLS handshake flow for key agreement or certificate
+   exchange, except as noted for fallback in Section State Machine
+   Impact (Section 10).)
 
    The extension data for ech_config_update is structured as follows:
 
@@ -690,7 +782,7 @@ Table of Contents
    PKI trust.  Additionally, the client MUST check that the leaf
    certificate includes the Extended Key Usage (EKU) for "ECH config
    signing" (OID to be assigned, see Section IANA Considerations
-   (Section 8)).  If the EKU is missing or not the expected value, the
+   (Section 9)).  If the EKU is missing or not the expected value, the
    client MUST reject the update (even if the certificate might be valid
    for normal TLS server authentication; the presence of the special EKU
    indicates explicit authorization for signing ECH configs, to prevent
@@ -874,9 +966,9 @@ Table of Contents
    advertising methods until it has a real ECHConfig from the server;
    but that is an implementation policy issue.
 
-4.3.  Processing
+5.3.  Processing
 
-4.3.1.  Client processing
+5.3.1.  Client processing
 
    The client's extension (let us call it the "ECH Config Update
    Support" extension) carries a bitmask of methods (RPK, PKIX, DNSSEC)
@@ -893,7 +985,7 @@ Table of Contents
    listing that intersection.  If the client does not have any ECHConfig
    for the server (e.g., a purely opportunistic attempt), it MAY omit
    the extension or include methods it generally supports (see
-   Section Deployment Considerations (Section 10)).
+   Section Deployment Considerations (Section 11)).
 
    During the TLS handshake, if the server sees that the client can
    process authenticated updates, the server can send a new TLS 1.3
@@ -909,7 +1001,7 @@ Table of Contents
    appear in the DNS SVCB or HTTPS RR[I-D.ietf-tls-svcb-ech]), and a
    signature_or_proof field carrying the data necessary for the client
    to verify the update (this field's content depends on the chosen
-   method and is detailed in Section Wire Format (Section 4)).  Because
+   method and is detailed in Section Wire Format (Section 5)).  Because
    the extension is carried inside EncryptedExtensions, it benefits from
    the confidentiality of the handshake – an eavesdropper cannot observe
    the new ECH keys or even the fact that an update was delivered.
@@ -966,7 +1058,7 @@ Table of Contents
       a handshake that itself was a fallback (ECH retry) handshake, the
       client can immediately retry the connection using the new
       ECHConfig (see Section Client State Machine and Retry
-      (Section 9)).  In general, clients SHOULD replace any older
+      (Section 10)).  In general, clients SHOULD replace any older
       ECHConfig for that server with the new list (or merge as needed if
       multiple configurations are in use), and SHOULD respect any
       validity interval or expiration conveyed by the signature or proof
@@ -992,13 +1084,13 @@ Table of Contents
    normally.  Thus, incremental deployment is possible. ## Behavior
    {#behavior}
 
-4.3.2.  Overview
+5.3.2.  Overview
 
    This section describes how the above structures are used in practice
    during a TLS handshake, including error handling and interactions
    with ECH retry (fallback) behavior.
 
-4.3.3.  Server processing
+5.3.3.  Server processing
 
    *On initial connection (full handshake, client offered ECH):* When a
    server receives a ClientHello that contains an
@@ -1033,29 +1125,22 @@ Table of Contents
       expecting DNS to handle distribution.  With our mechanism, we can
       improve this:
 
-   *  The server, upon ECH failure, can either (a) send a
-      HelloRetryRequest to trigger a second ClientHello attempt, or (b)
-      proceed immediately with the outer handshake (presenting the
-      public name's certificate and treating the connection as if ECH
-      was not used, albeit not authenticated for the inner origin).
+      -  The server, upon ECH failure, can either (a) send a
+         HelloRetryRequest to trigger a second ClientHello attempt (and
+         MAY include ech_config_update in the HRR), or (b) proceed
+         immediately with the outer handshake (presenting the public
+         name's certificate and treating the connection as if ECH was
+         not used, albeit not authenticated for the inner origin).
 
-   *  If the server chooses (a) HRR:
+      -  If the server chooses (a) HRR:
 
       -  It MUST include the standard ECH retry confirmation as per
          [I-D.ietf-tls-esni] (to prove it saw the ECH).
 
       -  Additionally, the server MAY include the ech_config_update
-         extension in the HelloRetryRequest as well.  However, standard
-         TLS 1.3 does not normally allow EncryptedExtensions in HRR (HRR
-         has its own extension space).  We would have to allow
-         ech_config_update as a HelloRetryRequest extension if we want
-         to send the new config at the HRR stage.  For now, let's assume
-         we do *not* use ech_config_update in HRR (to avoid layering
-         violations), and instead, the server will send the new config
-         in the next EncryptedExtensions after the client retries.  That
-         means the client has to perform the retry with either the same
-         old config or updated one from DNS.  This is not ideal, so
-         another approach:
+         extension in the HelloRetryRequest.  This allows the client to
+         obtain an authenticated ECHConfigList immediately, reducing
+         round trips before a successful retry.
 
       -  Alternatively, we could piggyback on the HelloRetryRequest's
          existing design: since [I-D.ietf-tls-esni] currently does not
@@ -1077,7 +1162,9 @@ Table of Contents
          support it) to give the client the correct ECHConfig for next
          time.  This is essentially a more robust form of the
          "retry_configs" approach that ECH spec had, but now with
-         authentication.
+         authentication.  If the server previously sent
+         ech_config_update in HRR, it SHOULD omit or keep the EE update
+         consistent to avoid conflicting updates in the same connection.
 
       -  The server then completes the handshake with its certificate
          for the public name.  The client will authenticate that
@@ -1086,7 +1173,7 @@ Table of Contents
          if the RPK method is in use and the presented certificate's
          public key matches one of the pinned trusted_keys, the client
          MAY accept the certificate even if it's not signed by a CA (see
-         Section Public Name Authentication (Section 4.3.5)).
+         Section Public Name Authentication (Section 5.3.5)).
          Otherwise, the certificate must be validated normally (which
          requires that the public name be something for which the server
          has a valid cert).
@@ -1161,7 +1248,7 @@ Table of Contents
    verify and see it's the same it already has.  But to save bandwidth,
    it might only send when there's a difference or an upcoming rotation.
 
-4.3.4.  Client behavior
+5.3.4.  Client behavior
 
    *Before connection (config retrieval):* The client obtains an
    ECHConfig for the server (via DNS SVCB/HTTPS RR, .well-known URI, or
@@ -1289,7 +1376,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
          o  So likely, the client should abort and maybe wait or try
             again later.
 
-4.3.5.  Public name authentication for retry
+5.3.5.  Public name authentication for retry
 
    As mentioned, one advantage of this framework is the ability to
    authenticate fallback connections via a pinned key rather than a CA-
@@ -1359,7 +1446,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    cover them.  The pin acts as a lightweight trust anchor specific to
    that ECH deployment.
 
-5.  Example Exchange (Informative)
+6.  Example Exchange (Informative)
 
    _This section provides a non-normative example to illustrate the
    protocol._
@@ -1473,7 +1560,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
 
    In this example, we saw a variety of uses of the mechanism.
 
-6.  Security Considerations
+7.  Security Considerations
 
    The security of this mechanism rests on the authenticity of the
    ech_config_update messages and the initial trust in the first
@@ -1786,7 +1873,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    which we have addressed with normative requirements and
    recommendations above.
 
-7.  Privacy Considerations
+8.  Privacy Considerations
 
    ECH itself is a privacy technology aimed at hiding the client's
    intended server name from observers.  This document builds on ECH and
@@ -1877,7 +1964,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    This spec in itself introduces no new cookies, identifiers, or
    tracking mechanisms beyond what TLS and DNS already require.
 
-8.  IANA Considerations
+9.  IANA Considerations
 
    This document requires several new registrations:
 
@@ -1892,8 +1979,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
           publication).
 
        *  ech_config_update: A new extension used in EncryptedExtensions
-          (and potentially in HelloRetryRequest if that gets allowed in
-          some future revision).  Recommended code point TBD3.  This
+          and HelloRetryRequest.  Recommended code point TBD3.  This
           extension will be marked for usage in TLS 1.3 handshake only,
           not applicable to earlier versions.
 
@@ -1902,7 +1988,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
        Extension Name: encrypted_client_hello_update_support TLS 1.3: CH
        Recommended: N (since it's only useful in context of ECH which is
        still not recommended for all TLS use) Reference: this document
-       Value: TBD3 Extension Name: ech_config_update TLS 1.3: EE, (HRR?)
+       Value: TBD3 Extension Name: ech_config_update TLS 1.3: EE, HRR
        Recommended: N Reference: this document (The "TLS 1.3" column
        indicates in which messages it may appear: CH = ClientHello, EE =
        EncryptedExtensions, HRR = HelloRetryRequest.  We might leave HRR
@@ -2018,17 +2104,17 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    We ensure to mention the reserved codepoint for NOPE-style (value 4
    in registry, flag 0x08).
 
-9.  Retry State Machine
+10.  Retry State Machine
 
    TBD.
 
-10.  Deployment Considerations
+11.  Deployment Considerations
 
    TBD.
 
-11.  References
+12.  References
 
-11.1.  Normative References
+12.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -2066,7 +2152,7 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
               <https://datatracker.ietf.org/doc/html/draft-ietf-tls-
               wkech-09>.
 
-11.2.  Informative References
+12.2.  Informative References
 
    [I-D.ietf-tls-esni]
               Rescorla, E., Oku, K., Sullivan, N., and C. A. Wood, "TLS
