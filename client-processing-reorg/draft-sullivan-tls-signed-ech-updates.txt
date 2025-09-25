@@ -187,10 +187,13 @@ Table of Contents
    ECHConfig values)[I-D.ietf-tls-esni].  The term "ECHConfig" refers to
    an individual configuration, which includes fields such as
    public_name, public_key (HPKE key), and so on, as defined in the ECH
-   draft.  We also use "public name" to mean the plaintext DNS name used
-   in the ClientHelloOuter (the outer SNI), and "hidden name" or
-   "originname" to mean the actual server name intended by the client
-   (carried in the encrypted ClientHelloInner).
+   draft.  We use "public name" to mean the value of the public_name
+   field in the ECHConfig, i.e., the authoritative name for updates and
+   validation associated with that configuration.  This name is not
+   required to be the ClientHelloOuter SNI, though deployments sometimes
+   choose to align them.  We use "hidden name" or "originname" to mean
+   the actual server name intended by the client (carried in the
+   encrypted ClientHelloInner).
 
    The reader should recall that in TLS 1.3, the server's
    EncryptedExtensions message is encrypted and integrity-protected with
@@ -243,12 +246,13 @@ Table of Contents
        to a trusted root.  The certificate must contain a new Extended
        Key Usage (EKU) indicating authority to sign ECH configurations.
 
-       The certificate's subject must cover the ECH public name (i.e.,
-       the plaintext SNI used for ECH) to prove that the signer is
-       authoritative for that name.  A client validates this method by
-       verifying the certificate chain, checking the EKU, confirming the
-       public name in the certificate, and then verifying the signature
-       over the ECHConfigList using the certified public key.
+       The certificate's subject must cover the ECH public name (the DNS
+       name anchoring the configuration, not necessarily the
+       ClientHelloOuter SNI) to prove that the signer is authoritative
+       for that name.  A client validates this method by verifying the
+       certificate chain, checking the EKU, confirming the public name
+       in the certificate, and then verifying the signature over the
+       ECHConfigList using the certified public key.
 
        This method leverages the existing Web PKI trust model for
        authentication but uses a dedicated EKU to constrain the
@@ -399,14 +403,15 @@ Table of Contents
    method it does not understand or did not agree to.
 
    *trusted_keys*: A vector of hashes of public keys (each hash is 32
-   bytes for SHA-256, defined below).  This list is used with the RPK
+   bytes for SHA-256, defined below).  This list is used only by the RPK
    method.  Each element is the SHA-256 digest of a DER-encoded
    SubjectPublicKeyInfo (SPKI) of a key that is authorized to sign
    updates for this ECHConfig.  The keys corresponding to these hashes
    are not further restricted by this specification (for instance, they
    need not correspond to the key in the current ECHConfig itself; they
    are separate keys chosen by the server operator for signing updates).
-   The list may be empty if the RPK method is not used or if no keys are
+   Clients MUST ignore trusted_keys for PKIX and DNSSEC methods.  The
+   list may be empty if the RPK method is not used or if no keys are
    pinned (e.g., if only PKIX or DNSSEC methods are supported).  If the
    methods bitmask includes the rpk(1) bit, then the trusted_keys vector
    MUST contain at least one SPKI hash.  If the rpk bit is not set,
@@ -1064,6 +1069,13 @@ Table of Contents
       validity interval or expiration conveyed by the signature or proof
       (i.e., not using the config beyond the allowed time).
 
+   HRR-specific processing: If a validated ech_config_update is received
+   in HelloRetryRequest, the client SHOULD immediately construct a new
+   ClientHello using the installed ECHConfig and retry.  If the server
+   subsequently also includes ech_config_update in EncryptedExtensions
+   for the same connection, the client SHOULD ignore it if it conflicts
+   with the HRR-applied update.
+
    *  If validation fails, the client *MUST ignore* the ech_config_list
       update and continue the handshake without applying it.  The client
       MUST NOT use a rejected update to initiate ECH in the future.  A
@@ -1086,33 +1098,39 @@ Table of Contents
 
 5.3.2.  Overview
 
-   This section describes how the above structures are used in practice
-   during a TLS handshake, including error handling and interactions
-   with ECH retry (fallback) behavior.
+   This section summarizes how updates are delivered in the handshake
+   and how clients/servers react, deferring verification details to
+   Section "Processing".
+
+   *  ECH accepted: server MAY send ech_config_update in
+      EncryptedExtensions (EE) if client signaled support and the server
+      has an update.
+
+   *  ECH rejected: server chooses between HelloRetryRequest (HRR) or
+      proceeding with the outer handshake.  In HRR, the server MAY
+      include ech_config_update; in the outer-handshake path, the server
+      SHOULD deliver ech_config_update in EE (if client supports it) so
+      the client can immediately retry with the new config.
+
+   *  Clients verify updates per method (RPK/PKIX/DNSSEC) and install on
+      success.  If an update is received and validated in HRR, the
+      client SHOULD immediately retry with the new ECHConfig.
 
 5.3.3.  Server processing
 
    *On initial connection (full handshake, client offered ECH):* When a
-   server receives a ClientHello that contains an
-   "encrypted_client_hello" extension (i.e., the client is attempting
-   ECH), it will process the ECH as per [I-D.ietf-tls-esni] to determine
-   if it can decrypt the ClientHelloInner.  At the same time, it should
-   check for the presence of the ECHConfigUpdateSupport extension in the
-   ClientHelloOuter.  If the client did include that extension, and if
-   the server has a newer ECHConfigList to send (for example, the
-   server's current ECH key is about to expire or rotate, or perhaps the
-   server always sends the same config via both DNS and in-band for
-   redundancy), it proceeds to prepare an update.
+   server receives a ClientHello with "encrypted_client_hello", it
+   processes ECH per [I-D.ietf-tls-esni] to determine whether it can
+   decrypt the ClientHelloInner.  It SHOULD also check for
+   ECHConfigUpdateSupport in the ClientHelloOuter.  If present and the
+   server has a newer ECHConfigList, it prepares an update.
 
    *  If the server successfully decrypts the ClientHelloInner (ECH
-      acceptance), it will complete the handshake using the inner
-      ClientHello (which contains the true SNI etc.).  The handshake
-      will include EncryptedExtensions.  The server MAY include the
-      ech_config_update extension in EncryptedExtensions if conditions
-      are met (client supports it and server has update).  The decision
-      algorithm was described in the overview: choose a method that the
-      client supports and that the server is willing to use.  If none,
-      do nothing (no extension).
+      acceptance), it completes the handshake using the inner
+      ClientHello.  In EncryptedExtensions, the server MAY include
+      ech_config_update if the client supports it and an update is
+      available.  Method selection follows the intersection and server
+      policy.
 
    *  If the server fails to decrypt the ClientHelloInner (ECH
       rejection), it will follow the ECH spec procedures.  ECH spec
@@ -1125,14 +1143,14 @@ Table of Contents
       expecting DNS to handle distribution.  With our mechanism, we can
       improve this:
 
-      -  The server, upon ECH failure, can either (a) send a
-         HelloRetryRequest to trigger a second ClientHello attempt (and
-         MAY include ech_config_update in the HRR), or (b) proceed
-         immediately with the outer handshake (presenting the public
-         name's certificate and treating the connection as if ECH was
-         not used, albeit not authenticated for the inner origin).
+      -  Upon ECH failure, the server either (a) sends an HRR to trigger
+         a second ClientHello (and MAY include ech_config_update in
+         HRR), or (b) proceeds with the outer handshake (treating the
+         connection as not authenticated for the inner origin) and
+         SHOULD deliver ech_config_update in EE if the client supports
+         it.
 
-      -  If the server chooses (a) HRR:
+   *  If the server chooses (a) HRR:
 
       -  It MUST include the standard ECH retry confirmation as per
          [I-D.ietf-tls-esni] (to prove it saw the ECH).
@@ -1265,25 +1283,9 @@ Table of Contents
    server accepted ECH and the handshake proceeds normally with inner),
    the client will check EncryptedExtensions for ech_config_update. - If
    present, the client processes it (parses as per structure).  It must
-   verify that the method in the extension was one of the bits it sent.
-   If not, ignore (and optionally treat as an error). - Then perform
-   verification as per method: * *RPK*: Try each pinned SPKI (the client
-   needs the actual public keys for those hashes.  How does it get them?
-   This is important: The client might not have stored the full public
-   key, only the hash.  We might need to adjust: either the initial
-   config could include not just hash but maybe also the public key in
-   some form?  Or the server might include the public key in the
-   signature structure?
-
-Actually, since the pinned keys might not be the same as any TLS keys, the client doesn't automatically have the actual public key just from the hash. One idea: the server could include the public key with the signature to allow verification without out-of-band lookup, but that undermines some benefits of hashing (though it's encrypted in handshake, so maybe fine).
-Alternatively, we require that the client somehow obtains the public key corresponding to the hash by some out-of-band means. Perhaps the `ech_update_auth` should have included the full public key? But that could bloat the DNS record or be redundant with a certificate maybe.
-
-Possibly a simpler approach: Use the hash as identifier only, but assume that typically the pinned key might be the key in some certificate the client can get or the server's outer certificate key. For instance, PNMasq idea was that the public name certificate might have the pinned key. If so, the client can extract it from the certificate.
-Another approach: have the server send a self-contained signature that includes the public key, e.g., if algorithm is Ed25519, server could send a raw Ed25519 public key and signature. But then how to trust that key? It was hashed in initial config though, so the client can check hash matches, so that could work: have the signature object in method_rpk include the public key of signer. That adds a bit overhead but ensures client can verify signature without needing an external key database. This was not explicitly included above, but we could say if using RPK, algorithm dictates the key (like for RSA/ECDSA, you could send a certificate, but then that's PKIX method. For RPK, keys might not have certs).
-
-Perhaps simpler: in `SignatureObject`, we could allow carrying the public key. But SignatureScheme in TLS doesn't include carrying key.
-Another route: The pinned keys could be exactly the public keys of the server's own certificate or something. But then that's basically a pinned certificate key – which is exactly PNMasq approach (the server's certificate used in outer handshake is pinned via hash in config). If that's done, then the client *does* have the public key (from the cert).
-Actually, this lines up: if RPK method is used, maybe the intent is that the pinned SPKI is of the public name's TLS certificate (which might be self-signed or from a local CA). In that case, the client sees the certificate in the fallback handshake, checks its SPKI hash against the pin, and if matches, trusts it for the update signature too. The server could then sign the update using the same key, or skip signing and rely on certificate? But we decided to sign anyway. If using same key, the signature could even reuse the CertificateVerify from handshake? That's messy. Instead, server just signs separately. The client can get the public key from the certificate (which is transmitted anyway in handshake if fallback).
+   verify that the method value was one of the bits it sent; otherwise,
+   ignore (and optionally treat as an error).  Verification procedures
+   for RPK, PKIX, and DNSSEC are specified in Section "Processing".
 
 However, in a successful ECH handshake, there is no outer certificate transmitted (the handshake is encrypted, certificate is inner). The pinned key might not have been used in this handshake at all. So the client would have to either have cached it from a prior fallback or initial key distribution.
 Possibly initial key distribution included a certificate? For example, in DNS, they could publish a SPKI hash of a key and also maybe a corresponding self-signed certificate via some channel. This is getting complex.
@@ -1389,28 +1391,17 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    we leverage pinned keys.
 
    If the ECHConfig's ech_update_auth includes the RPK method, and the
-   server chooses to use that method for updates, then the server can
-   present a certificate in the outer handshake that is *self-signed or
-   issued by a private CA*, as long as its public key matches one of the
-   SPKI hashes in trusted_keys.  The client, upon seeing the server's
-   Certificate message during the outer handshake, will extract the SPKI
-   of the leaf certificate.  It computes the SHA-256 hash of that SPKI
-   and checks if it is in the trusted_keys list from the ECHConfig.  If
-   it is, then the client MAY accept this certificate as proof of server
-   identity for the public name _for the sole purpose of ECH retry_. In
-   other words, the client can treat the outer handshake as being
-   authenticated for the public name via the pin, even though the cert
-   is not publicly trusted.  This allows the handshake to complete
-   without a PKI error. *However*, the client MUST still treat the
-   connection as not authenticated for the actual hidden origin (it must
-   not send application data thinking it's talking securely to the
-   origin, since the outer cert isn't validated by conventional
-   means)[I-D.ietf-tls-esni].  The only "authentication" achieved is
-   that the server demonstrated knowledge of the private key
-   corresponding to the pinned SPKI, which was advertised by the genuine
-   server in the initial ECHConfig.  This assures the client that the
-   handshake is not intercepted by a third-party attacker (who wouldn't
-   have the pinned key), assuming the initial config came securely.
+   server chooses to use that method for updates, then the server
+   presents a certificate in the outer handshake whose public key
+   matches one of the SPKI hashes in trusted_keys.  The client extracts
+   the SPKI of the leaf certificate, computes its SHA-256 hash, and
+   checks for a match in trusted_keys.  If matched and proof of
+   possession is demonstrated by completing the outer handshake
+   (CertificateVerify), the client MAY accept the server's identity for
+   the public name solely for the purpose of delivering an authenticated
+   ech_config_update and triggering a retry with ECH.  The client MUST
+   still treat the connection as not authenticated for the hidden
+   origin.
 
    In practice, this means: - The client performs the certificate check
    in two layers on an outer handshake:
@@ -1452,10 +1443,10 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    protocol._
 
    *DNS Example:* Suppose api.example.com is a hidden origin behind ECH.
-   The operator uses a public name front.example.net for ECH.  They
-   publish a DNS HTTPS record for _encrypted.front.example.net.
-   containing an ech parameter: _encrypted.front.example.net. 3600 IN
-   HTTPS 1 . alpn="h2,h3" ech="...base64-encoded ECHConfigList..."
+   The operator uses a public name front.example.net (the public_name in
+   the ECHConfig).  They publish a DNS HTTPS record containing an ech
+   SvcParam for that configuration: _encrypted.front.example.net. 3600
+   IN HTTPS 1 . alpn="h2,h3" ech="...base64-encoded ECHConfigList..."
    Included in that ECHConfigList is an ech_update_auth extension.
    Let's say the operator supports all three methods: they have a
    DNSSEC-signed zone, a certificate for front.example.net, and also
@@ -1492,8 +1483,8 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
       fresh certificate for front.example.net with EKU and wants to use
       the Web PKI trust).
 
-      -  The server's certificate for front.example.net is issued by a
-         CA, and contains the EKU OID for ECH config signing.
+   *  The server's certificate for front.example.net is issued by a CA
+      and contains the EKU OID for ECH config signing.
 
       -  The server forms the update: method = 2 (PKIX), ech_config_list
          = <bytes of new config list>.  It then takes its ECH signing
@@ -1912,48 +1903,48 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
    support by client fingerprint or version.  So not a huge new
    vulnerability. - The actual ECHConfigList updates are encrypted in
    the handshake, so no privacy issue there (they might contain the
-   public name in clear as part of config, but since the whole thing is
-   encrypted in TLS handshake, passive observers can't see it).  Even if
-   they could, it's just the same public name that was in the outer SNI
-   anyway, so nothing new. - When the client falls back to an outer
-   handshake, the hidden origin's name is not exposed in SNI (the client
-   continues to use the public name).  This mechanism ensures that even
-   in the retry scenario, the hidden name remains protected.  Some
-   earlier ECH fallback proposals might have considered revealing the
-   real name if needed (which would compromise privacy); we avoid that
-   by pinning or alternate auth of the public name. - One privacy
-   drawback: A client might end up connecting twice (once with outer
-   fallback, then again with ECH) which doubles the connections an
-   observer sees.  An observer could notice a pattern: e.g., client
-   connects to front.example.net, does some TLS handshake and then
-   another to the same front.example.net shortly after.  This could hint
-   that ECH was attempted and failed first time.  However, since
-   front.example.net likely is used by many as a front domain, this
-   doesn't directly reveal which hidden site was the target.  It does
-   signal "this client tried ECH to something behind front.example.net,
-   then succeeded second try," which could draw attention, but not
-   identification of the site beyond that front grouping.  Over time, as
-   config updates are less frequent, most connections will be one try
-   only. - If an attacker tries to exploit the update mechanism to
-   deduce something (like timing when a site rotates keys, etc.), they
-   might glean that keys changed if they see handshakes with
-   ech_config_update happening.  But key rotation timing is usually not
-   secret, and an outside observer cannot see the content of the
-   extension to know what changed, only perhaps infer that an update
-   happened if sizes differ or so.  This is a minor concern. - Use of
-   DNSSEC involves sending DNS records which include domain names (the
-   _encrypted.front.example.net etc.).  Those are already public info in
-   DNS.  Embedding them in the TLS handshake (encrypted) is fine.  The
-   client when validating might do additional DNS queries (for parent
-   DNSKEY).  Those queries could be observed by the network and reveal
-   that the client is doing DNSSEC for that domain.  But a client doing
-   DNSSEC likely does many validations anyway.  And if using a local
-   validating resolver, no extra queries on wire from client.  If the
-   client itself fetches parent keys, those queries could slightly
-   expose interest in the domain.  However, if ECH was used at all, the
-   client already queried DNS for the initial config (unless it had
-   cached).  So no new info leaked that the client didn't already in
-   trying ECH.
+   public name in clear as part of the config, but since the whole thing
+   is encrypted in TLS handshake, passive observers can't see it).  Even
+   if they could, it is not required that the public name equal the
+   outer SNI; some deployments align them, others do not. - When the
+   client falls back to an outer handshake, the hidden origin's name is
+   not exposed in SNI (the client continues to use the public name).
+   This mechanism ensures that even in the retry scenario, the hidden
+   name remains protected.  Some earlier ECH fallback proposals might
+   have considered revealing the real name if needed (which would
+   compromise privacy); we avoid that by pinning or alternate auth of
+   the public name. - One privacy drawback: A client might end up
+   connecting twice (once with outer fallback, then again with ECH)
+   which doubles the connections an observer sees.  An observer could
+   notice a pattern: e.g., client connects to front.example.net, does
+   some TLS handshake and then another to the same front.example.net
+   shortly after.  This could hint that ECH was attempted and failed
+   first time.  However, since front.example.net likely is used by many
+   as a front domain, this doesn't directly reveal which hidden site was
+   the target.  It does signal "this client tried ECH to something
+   behind front.example.net, then succeeded second try," which could
+   draw attention, but not identification of the site beyond that front
+   grouping.  Over time, as config updates are less frequent, most
+   connections will be one try only. - If an attacker tries to exploit
+   the update mechanism to deduce something (like timing when a site
+   rotates keys, etc.), they might glean that keys changed if they see
+   handshakes with ech_config_update happening.  But key rotation timing
+   is usually not secret, and an outside observer cannot see the content
+   of the extension to know what changed, only perhaps infer that an
+   update happened if sizes differ or so.  This is a minor concern. -
+   Use of DNSSEC involves sending DNS records which include domain names
+   (the _encrypted.front.example.net etc.).  Those are already public
+   info in DNS.  Embedding them in the TLS handshake (encrypted) is
+   fine.  The client when validating might do additional DNS queries
+   (for parent DNSKEY).  Those queries could be observed by the network
+   and reveal that the client is doing DNSSEC for that domain.  But a
+   client doing DNSSEC likely does many validations anyway.  And if
+   using a local validating resolver, no extra queries on wire from
+   client.  If the client itself fetches parent keys, those queries
+   could slightly expose interest in the domain.  However, if ECH was
+   used at all, the client already queried DNS for the initial config
+   (unless it had cached).  So no new info leaked that the client didn't
+   already in trying ECH.
 
    *In summary*, the mechanism is designed to preserve the privacy goals
    of ECH.  It avoids falling back to clear SNI, and it contains
@@ -2106,11 +2097,30 @@ This is not an on-the-wire defined structure in TLS normally, but we can define 
 
 10.  Retry State Machine
 
-   TBD.
-
 11.  Deployment Considerations
 
-   TBD.
+   *  Method selection: Operators SHOULD support at least one widely
+      implemented method (PKIX or DNSSEC).  RPK offers operational
+      independence but requires careful pin lifecycle management.
+      Prefer methods that minimize handshake size under expected
+      transport (e.g., QUIC initial amplification limits).
+
+   *  HRR sizing: When sending ech_config_update in HRR, be mindful of
+      size to avoid fragmentation or anti-amplification limits; prefer
+      concise proofs/signatures (e.g., RPK) if bandwidth constrained.
+
+   *  Rotation cadence: Publish updates well in advance of key
+      retirement; include freshness/validity bounds per method.
+      Consider overlapping validity to allow safe client rollovers.
+
+   *  Pin management (RPK): Maintain multiple valid pins to enable
+      recovery from key loss/compromise.  Remove compromised pins via an
+      authenticated update signed by a still-trusted key or by using
+      PKIX/DNSSEC to re-anchor trust.
+
+   *  Consistency: If sending an update in HRR and again in EE, keep
+      contents consistent to avoid client ambiguity.  Prefer sending
+      once when feasible.
 
 12.  References
 
