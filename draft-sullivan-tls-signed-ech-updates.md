@@ -17,8 +17,10 @@ keyword:
 author:
   - fullname: Nick Sullivan
     organization: Cryptography Consulting LLC
+    email: nicholas.sullivan+ietf@gmail.com
   - fullname: Dennis Jackson
     organization: Mozilla
+    email: ietf@dennis-jackson.uk
 
 normative:
   RFC2119:
