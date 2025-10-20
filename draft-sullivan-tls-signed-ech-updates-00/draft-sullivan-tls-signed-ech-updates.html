@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="en" class="Internet-Draft">
+<head>
+<meta charset="utf-8">
+<meta content="Common,Latin" name="scripts">
+<meta content="initial-scale=1.0" name="viewport">
+<title>Authenticated ECH Config Distribution and Rotation</title>
+<meta content="Nick Sullivan" name="author">
+<meta content="Dennis Jackson" name="author">
+<meta content="
+       Encrypted ClientHello (ECH) requires clients to have the server's ECH configuration before connecting. Currently, when ECH fails, servers can send updated configurations but clients cannot authenticate them without a certificate for the public name, limiting deployment flexibility. 
+       This document specifies an authenticated ECH configuration update mechanism. Servers can deliver signed ECH configurations during the TLS handshake, allowing clients to authenticate and immediately use them for retry. The mechanism decouples ECH key distribution from transport, enabling the same signed configuration to work via DNS or TLS delivery. 
+    " name="description">
+<meta content="xml2rfc 3.31.0" name="generator">
+<meta content="TLS 1.3" name="keyword">
+<meta content="Encrypted ClientHello" name="keyword">
+<meta content="ECH" name="keyword">
+<meta content="Key Rotation" name="keyword">
+<meta content="PKIX" name="keyword">
+<meta content="RPK" name="keyword">
+<meta content="draft-sullivan-tls-signed-ech-updates-latest" name="ietf.draft">
+<!-- Generator version information:
+  xml2rfc 3.31.0
+    Python 3.12.12
+    ConfigArgParse 1.7
+    google-i18n-address 3.1.1
+    intervaltree 3.1.0
+    Jinja2 3.1.6
+    lxml 5.3.1
+    platformdirs 4.5.0
+    pycountry 24.6.1
+    PyYAML 6.0.2
+    requests 2.32.5
+    wcwidth 0.2.14
+-->
+<link href="draft-sullivan-tls-signed-ech-updates.xml" rel="alternate" type="application/rfc+xml">
+<link href="#copyright" rel="license">
+<style type="text/css">@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Italic'), local('Lora-Italic'), url('https://martinthomson.github.io/rfc-css/fonts/lora-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Lora Regular'), local('Lora-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/lora-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-cyrillic.woff2') format('woff2');
+  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Lora Bold'), local('Lora-Bold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-bold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Lora SemiBold'), local('Lora-SemiBold'), url('https://martinthomson.github.io/rfc-css/fonts/lora-semibold-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Oxygen Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Oxygen Mono'), local('OxygenMono-Regular'), url('https://martinthomson.github.io/rfc-css/fonts/oxygenmono-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: italic;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-italic-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Sofia Sans Semi Condensed';
+  font-style: normal;
+  font-weight: 1 1000;
+  src: url('https://martinthomson.github.io/rfc-css/fonts/sofiasanssemicondensed-regular-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light dark;
+  --background-color: #fff;
+  --text-color: #222;
+  --title-color: #191919;
+  --link-color: #2a6496;
+  --highlight-color: #f9f9f9;
+  --line-color: #eee;
+  --pilcrow-weak: #ddd;
+  --pilcrow-strong: #bbb;
+  --small-font-size: 14.5px;
+  --font-mono: 'Oxygen Mono', monospace;
+  --font-title: "Sofia Sans Semi Condensed", sans-serif;
+  scrollbar-color: #bbb #eee;
+}
+body {
+  max-width: 600px;
+  margin: 75px auto;
+  padding: 0 5px;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  font: 16px/22px "Lora", serif;
+  scroll-behavior: smooth;
+}
+
+.ears {
+  display: none;
+}
+
+/* headings */
+section {
+  clear: both;
+}
+.section-number {
+  padding-right: 0.5em;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-title);
+  font-weight: 680;
+  margin: 0.8em 0 0.3em;
+  font-size-adjust: 0.5;
+  color: var(--title-color);
+}
+h1#title {
+  font-size: 32px;
+  line-height: 40px;
+  clear: both;
+}
+h1#title, h1#rfcnum {
+  margin: 1.5em 0 0.2em;
+}
+h1#rfcnum + h1#title {
+  margin: 0.2em 0;
+}
+
+h1, h2, h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+h4, h5, h6 {
+  font-size: 20px;
+  line-height: 24px;
+}
+
+/* general structure */
+.author {
+  padding-bottom: 0.3em;
+  vertical-align: top;
+}
+#abstract+p {
+  font-size: 18px;
+  line-height: 24px;
+}
+#abstract+p code, #abstract+p samp, #abstract+p tt {
+  font-size: 16px;
+  line-height: 0;
+}
+
+p {
+  padding: 0;
+  margin: 0.5em 0;
+  text-align: left;
+}
+div {
+  margin: 0;
+}
+.alignRight.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignRight.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignRight {
+  margin: 1em 0;
+}
+.alignRight > *:first-child {
+  border: none;
+  margin: 0;
+  float: right;
+  clear: both;
+}
+.alignRight > *:nth-child(2) {
+  clear: both;
+  display: block;
+  border: none;
+}
+svg {
+  display: block;
+}
+/* font-family isn't space-separated, but =~ will have to do */
+svg[font-family~="monospace" i], svg [font-family~="monospace" i] {
+  font-family: var(--font-mono);
+}
+.alignCenter.art-text {
+  background-color: var(--highlight-color);
+  border: 1px solid var(--line-color);
+  border-radius: 3px;
+  padding: 0.5em 1em 0;
+  margin-bottom: 0.5em;
+}
+.alignCenter.art-text pre {
+  padding: 0;
+  width: auto;
+}
+.alignCenter {
+  margin: 1em 0;
+}
+.alignCenter > *:first-child {
+  border: none;
+  /* this isn't optimal, but it's an existence proof.  PrinceXML doesn't
+     support flexbox yet.
+  */
+  display: table;
+  margin: 0 auto;
+}
+
+/* lists */
+ol, ul {
+  padding: 0;
+  margin: 0 0 0.5em 2em;
+  & :is(ol, ul) {
+    margin-left: 1em;
+  }
+}
+li {
+  margin: 0 0 0.25em 0;
+}
+ul.empty, .ulEmpty {
+  list-style-type: none;
+  & li {
+    margin-top: 0.5em;
+  }
+}
+:is(ul, ol).compact, .ulCompact, .olCompact {
+  margin: 0 0 0 2em;
+  & li {
+    margin: 0;
+    & :first-child { margin-top: 0; }
+    & :last-child { margin-bottom: 0; }
+  }
+}
+
+/* definition lists */
+dl {
+  clear: left;
+  --indent: 3ch;
+  /* --indent: attr(indent ch); not supported in any browser, but we can dream */
+  &.olPercent {
+    --indent: 5ch;
+    & > dt {
+      min-width: calc(var(--indent) - 2ch);
+    }
+  }
+  &.olPercent > dt {
+    float: none;
+  }
+
+  dl > dd > & {
+    margin-top: 0.5em;
+    margin-bottom: 0;
+  }
+}
+dl:not(.dlNewline) > dt {
+  float: left;
+  margin-right: 2ch;
+  min-width: 8ch;
+}
+dl > dd {
+  margin-bottom: .8em;
+  margin-left: var(--indent) !important; /* stupid element overrides */
+  min-height: 2ex;
+}
+:is(dl.compact, .dlCompact) > dd {
+  margin-bottom: 0;
+  & > :is(:first-child, .break:first-child + *) {
+    margin-top: 0;
+  }
+  & > :is(:last-child) {
+    margin-bottom: 0;
+  }
+}
+:is(dd, span).break {
+  display: none;
+}
+
+/* links */
+a, a[href].selfRef:hover {
+  text-decoration: none;
+}
+a[href] {
+  color: var(--link-color);
+}
+a[href].selfRef, .iref + a[href].internal {
+  color: var(--text-color);
+}
+a[href]:hover {
+  text-decoration: underline;
+}
+a[href].selfRef:hover {
+  background-color: var(--highlight-color);
+}
+a.xref:is(.cite, .auto), :is(#status-of-memo, #copyright) a {
+  white-space: nowrap;
+}
+
+/* Figures */
+tt, code, pre {
+  background-color: var(--highlight-color);
+  font: 14px/22px var(--font-mono);
+}
+tt, code {
+  /* changing the font for inline elements leads to different ascender
+     and descender heights; as we want to retain baseline alignment,
+     remove leading to avoid altering the final height of lines
+     note: this fails if these blocks take an entire line,
+     a different solution would be great */
+  line-height: 0;
+}
+:is(h1, h2, h3, h4, h5, h6) :is(tt, code) {
+  font-size: 84%;
+}
+pre {
+  border: 1px solid var(--line-color);
+  font-size: 13.5px;
+  line-height: 16px;
+  letter-spacing: -0.2px;
+  margin: 5px;
+  padding: 5px;
+}
+img {
+  max-width: 100%;
+}
+figure {
+  margin: 0.5em 0;
+  padding: 0;
+}
+figure blockquote {
+  margin: 0.8em 0.4em 0.4em;
+}
+figcaption, caption {
+  font-style: italic;
+  margin: 0.5em 1.5em;
+  text-align: left;
+  caption-side: bottom;
+}
+@media screen {
+  /* Auto-collapse boilerplate. */
+  :is(#status-of-memo, #copyright) p {
+    margin: -2px 0;
+    max-height: 0;
+    transition: max-height 2s ease, margin 0.5s ease 0.5s;
+    overflow: hidden;
+  }
+  :is(#status-of-memo, #copyright):hover p,
+  :is(#status-of-memo, #copyright) h2:target ~ p {
+    margin: 0.5em 0;
+    max-height: 500px;
+    overflow: auto;
+  }
+  pre, svg {
+    display: inline-block;
+    /* In the horizontal direction, sometimes people make over-sized figures.
+       Scrollbars for those is therefore necessary: auto adds them as necessary..
+       In the vertical direction, the line-height can combine with the font
+       asender/descender height to produce scrollbars: hidden avoids that. */
+    overflow: auto hidden;
+  }
+  pre {
+    max-width: 100%;
+    width: calc(100% - 22px - 1em);
+  }
+  svg {
+    max-width: calc(100% - 22px - 1em);
+  }
+  figure pre {
+    display: block;
+    width: calc(100% - 25px);
+  }
+  :is(pre, svg) + .pilcrow {
+    display: inline-block;
+    vertical-align: text-bottom;
+    padding-bottom: 8px;
+  }
+}
+
+/* aside, blockquote */
+aside, blockquote {
+  margin-left: 0;
+  padding: 0 2em;
+  font-style: italic;
+}
+blockquote {
+  margin: 1em 0;
+}
+cite {
+  display: block;
+  text-align: right;
+  font-style: italic;
+}
+
+/* tables */
+table {
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 1em;
+  border-collapse: collapse;
+}
+table.right {
+  margin-left: auto;
+}
+table.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+table.left {
+  margin-right: auto;
+}
+table .text-left {
+  text-align: left;
+}
+table .text-center {
+  text-align: center;
+}
+table .text-right {
+  text-align: right;
+}
+
+thead, tbody {
+  border: 1px solid var(--line-color);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px;
+}
+th {
+  background-color: var(--line-color);
+}
+:is(tr:nth-child(2n), thead+tbody > tr:nth-child(2n+1)) > td {
+  background-color: var(--background-color);
+}
+:is(tr:nth-child(2n+1), thead+tbody > tr:nth-child(2n)) > td {
+  background-color: var(--highlight-color);
+}
+table caption {
+  margin: 0;
+  padding: 3px 0 3px 1em;
+}
+table p {
+  margin: 0;
+}
+
+/* pilcrow */
+a.pilcrow {
+  margin-left: 3px;
+  opacity: 0.2;
+  user-select: none;
+  &[href] {
+    color: var(--pilcrow-weak);
+    &:hover { text-decoration: none; }
+  }
+}
+@media not print {
+  :hover > a.pilcrow {
+    opacity: 1;
+  }
+  a.pilcrow[href]:hover {
+    color: var(--pilcrow-strong);
+    background-color: transparent;
+  }
+}
+@media print {
+  a.pilcrow {
+    display: none;
+  }
+}
+
+/* misc */
+hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+}
+.bcp14 {
+  font-variant: small-caps;
+  font-weight: 600;
+  font-size: var(--small-font-size);
+}
+.role {
+  font-variant: all-small-caps;
+}
+sub, sup {
+  line-height: 1;
+  font-size: 80%;
+}
+
+/* info block */
+#identifiers {
+  margin: 0;
+  font-size: var(--small-font-size);
+  line-height: 18px;
+  --identifier-width: 15ch;
+  & dt {
+    width: var(--identifier-width);
+    min-width: var(--identifier-width);
+    clear: left;
+    float: left;
+    text-align: right;
+    margin-right: 1ch;
+  }
+  & dd {
+    margin: 0;
+    margin-left: calc(1em + var(--identifier-width)) !important;
+    min-width: 5em;
+  }
+  & .authors {
+    & .author {
+      display: inline-block;
+      margin-right: 1.5em;
+    }
+    & .org {
+      font-style: italic;
+    }
+  }
+}
+
+/* The prepared/rendered info at the very bottom of the page */
+.docInfo {
+  color: #999;
+  font-size: 0.9em;
+  font-style: italic;
+  margin-top: 2em;
+}
+.docInfo .prepared {
+  float: right;
+}
+
+/* table of contents */
+#toc {
+  padding: 0.75em 0 2em 0;
+  margin-bottom: 1em;
+
+  & nav {
+    & ul {
+      margin: 0 0.5em 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    & li {
+      line-height: 1.3em;
+      margin: 2px 0;
+      padding-left: 1.2em;
+      text-indent: -1.2em;
+    }
+  }
+  & a.xref {
+    white-space: normal;
+  }
+}
+
+.references {
+  & > dt {
+    text-align: right;
+    font-weight: bold;
+    min-width: 10ch;
+    margin-right: 1.5ch;
+    &:target::before {
+      content: "⇒";
+      margin: 0 10px 0 -25px;
+    }
+  }
+  & > dd {
+    margin-left: 12ch !important;
+    overflow: visible;
+    & .refInstance {
+      margin-bottom: 0.8em;
+    }
+    & .ascii {
+      margin-bottom: 0.25em;
+    }
+  }
+}
+
+#rfc\.index\.index + ul {
+  margin-left: 0;
+}
+
+/* authors */
+address.vcard {
+  font-style: normal;
+  max-width: 20em;
+  margin: 1em auto 1em 0;
+
+  & .nameRole {
+    font-weight: 700;
+    margin-left: 0;
+  }
+  & .label {
+    margin: 0.5em 0;
+  }
+  & .type {
+    display: none;
+  }
+  & .alternative-contact {
+    margin: 0.5em 0 0.25em 0;
+  }
+  & .non-ascii {
+    margin: 0 0 0 2em;
+  }
+  & div.left {
+    text-align: left;
+  }
+  & div.right {
+    text-align: right;
+  }
+}
+
+hr.addr {
+  border-top: 1px dashed;
+  margin: 0;
+  color: #ddd;
+  max-width: calc(100% - 16px);
+}
+@media (min-width: 500px) {
+  #authors-addresses > section {
+    column-count: 2;
+    column-gap: 20px;
+  }
+  #authors-addresses > section > h2 {
+    column-span: all;
+  }
+  /* hack for break-inside: avoid-column */
+  #authors-addresses address {
+    display: inline-block;
+    break-inside: avoid-column;
+  }
+}
+
+/* Comments */
+.rfcEditorRemove p:first-of-type {
+  font-style: italic;
+}
+.cref {
+  background-color: rgba(249, 232, 105, 0.3);
+  padding: 2px 4px;
+}
+.crefSource {
+  font-style: italic;
+}
+
+@media screen {
+  #toc nav {
+    font-family: var(--font-title);
+    font-weight: 360;
+    & > ul { margin-bottom: 2em; }
+    & ul {
+      margin: 0 0 0 4px;
+      & :is(p, li) {
+        margin: 2px 0;
+      }
+    }
+  }
+  #toc a.toplink {
+    float: right;
+  }
+}
+@media not screen {
+  #toc a.toplink {
+    display: none;
+  }
+}
+
+
+/* TOC layout for smaller screens */
+@media screen and (max-width: 929px) {
+  #toc {
+    position: fixed;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    padding: 1px 0 0 0;
+    margin: 0;
+    border-bottom: 1px solid #ccc;
+    opacity: 0.6;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 2px 0 2px 6px;
+    padding-right: 1em;
+    font-size: 18px;
+    line-height: 24px;
+    min-width: 190px;
+    text-align: right;
+    background-color: #444;
+    color: white;
+    cursor: pointer;
+    &::before { /* css hamburger */
+      float: right;
+      position: relative;
+      width: 1em;
+      height: 1px;
+      left: -164px;
+      margin: 8px 0 0 0;
+      background: white none repeat scroll 0 0;
+      box-shadow: 0 4px 0 0 white, 0 8px 0 0 white;
+      content: "";
+    }
+  }
+  #toc nav {
+    display: none;
+    background-color: var(--background-color);
+    padding: 0.5em 1em 1em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    height: calc(100vh - 48px);
+    border-left: 1px solid #ddd;
+  }
+  #toc.active {
+    opacity: 1;
+    & nav { display: block; }
+  }
+  /* Make the collapsed ToC header render white on gray also when it's a link */
+  #toc h2 a,
+  #toc h2 a:is(:link, :focus, :hover),
+  #toc a.toplink,
+  #toc a.toplink:hover {
+    color: white;
+    background-color: #444;
+    text-decoration: none;
+  }
+  #toc a.toplink {
+    margin: 2px 0.5em 0;
+  }
+}
+
+/* TOC layout for wide screens */
+@media screen and (min-width: 930px) {
+  body {
+    padding-right: 360px;
+    padding-right: calc(min(180px + 20%, 500px));
+  }
+  #toc {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    right: calc(50vw - 480px);
+    width: 312px;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+  }
+  #toc h2 {
+    margin: 0;
+    padding: 0.25em 1em 1em 0;
+  }
+  #toc nav {
+    display: block;
+    height: calc(90vh - 84px);
+    bottom: 0;
+    padding: 0.5em 0 2em;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  img { /* future proofing */
+    max-width: 100%;
+    height: auto;
+  }
+  #toc a.toplink {
+    margin: 8px 0.5em 0;
+  }
+}
+
+/* pagination */
+@media print {
+  body {
+    width: 100%;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+  #n-copyright-notice {
+    border-bottom: none;
+  }
+  #toc, #n-introduction {
+    page-break-before: always;
+  }
+  #toc {
+    border-top: none;
+    padding-top: 0;
+  }
+  figure, pre, .vcard {
+    page-break-inside: avoid;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+  :is(h2, h3, h4, h5, h6)+*, dd {
+    page-break-before: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 10pt;
+  }
+  table {
+    border: 1px solid #ddd;
+  }
+  td {
+    border-top: 1px solid #ddd;
+  }
+}
+
+@page :first {
+  padding-top: 0;
+  @top-left {
+    content: normal;
+    border: none;
+  }
+  @top-center {
+    content: normal;
+    border: none;
+  }
+  @top-right {
+    content: normal;
+    border: none;
+  }
+}
+
+@page {
+  size: A4;
+  margin-bottom: 45mm;
+  padding-top: 20px;
+}
+
+/* Dark mode. */
+@media (prefers-color-scheme: dark) {
+:root {
+  --background-color: #121212;
+  --text-color: #f0f0f0;
+  --title-color: #fff;
+  --link-color: #4da4f0;
+  --highlight-color: #282828;
+  --line-color: #444;
+  --pilcrow-weak: #444;
+  --pilcrow-strong: #666;
+  scrollbar-color: #777 #333;
+}
+}
+
+/* SVG Trick: a prefix match works because only black and white are allowed */
+svg :is([stroke="black"], [stroke^="#000"]) {
+  stroke: var(--text-color);
+}
+svg :is([stroke="white"], [stroke^="#fff"]) {
+  stroke: var(--background-color);
+}
+svg :is([fill="black"], [fill^="#000"], :not([fill])) {
+  fill: var(--text-color);
+}
+svg :is([fill="white"], [fill^="#fff"]) {
+  fill: var(--background-color);
+}
+</style>
+
+</head>
+<body class="xml2rfc">
+<table class="ears">
+<thead><tr>
+<td class="left">Internet-Draft</td>
+<td class="center">Authenticated ECH Update</td>
+<td class="right">October 2025</td>
+</tr></thead>
+<tfoot><tr>
+<td class="left">Sullivan &amp; Jackson</td>
+<td class="center">Expires 23 April 2026</td>
+<td class="right">[Page]</td>
+</tr></tfoot>
+</table>
+<div id="external-metadata" class="document-information"></div>
+<div id="internal-metadata" class="document-information">
+<dl id="identifiers">
+<dt class="label-workgroup">Workgroup:</dt>
+<dd class="workgroup">TLS</dd>
+<dt class="label-internet-draft">Internet-Draft:</dt>
+<dd class="internet-draft">draft-sullivan-tls-signed-ech-updates-latest</dd>
+<dt class="label-published">Published:</dt>
+<dd class="published">
+<time datetime="2025-10-20" class="published">20 October 2025</time>
+    </dd>
+<dt class="label-intended-status">Intended Status:</dt>
+<dd class="intended-status">Standards Track</dd>
+<dt class="label-expires">Expires:</dt>
+<dd class="expires"><time datetime="2026-04-23">23 April 2026</time></dd>
+<dt class="label-authors">Authors:</dt>
+<dd class="authors">
+<div class="author">
+      <div class="author-name">N. Sullivan</div>
+<div class="org">Cryptography Consulting LLC</div>
+</div>
+<div class="author">
+      <div class="author-name">D. Jackson</div>
+<div class="org">Mozilla</div>
+</div>
+</dd>
+</dl>
+</div>
+<h1 id="title">Authenticated ECH Config Distribution and Rotation</h1>
+<section id="section-abstract">
+      <h2 id="abstract"><a href="#abstract" class="selfRef">Abstract</a></h2>
+<p id="section-abstract-1">Encrypted ClientHello (ECH) requires clients to have the server's ECH configuration before connecting. Currently, when ECH fails, servers can send updated configurations but clients cannot authenticate them without a certificate for the public name, limiting deployment flexibility.<a href="#section-abstract-1" class="pilcrow">¶</a></p>
+<p id="section-abstract-2">This document specifies an authenticated ECH configuration update mechanism. Servers can deliver signed ECH configurations during the TLS handshake, allowing clients to authenticate and immediately use them for retry. The mechanism decouples ECH key distribution from transport, enabling the same signed configuration to work via DNS or TLS delivery.<a href="#section-abstract-2" class="pilcrow">¶</a></p>
+</section>
+<section class="note rfcEditorRemove" id="section-note.1">
+      <h2 id="name-about-this-document">
+<a href="#name-about-this-document" class="section-name selfRef">About This Document</a>
+      </h2>
+<p id="section-note.1-1">This note is to be removed before publishing as an RFC.<a href="#section-note.1-1" class="pilcrow">¶</a></p>
+<p id="section-note.1-2">
+        Status information for this document may be found at <span><a href="https://datatracker.ietf.org/doc/draft-sullivan-tls-signed-ech-updates/">https://datatracker.ietf.org/doc/draft-sullivan-tls-signed-ech-updates/</a></span>.<a href="#section-note.1-2" class="pilcrow">¶</a></p>
+<p id="section-note.1-3">Source for this draft and an issue tracker can be found at
+        <span><a href="https://github.com/grittygrease/draft-sullivan-tls-signed-ech-updates">https://github.com/grittygrease/draft-sullivan-tls-signed-ech-updates</a></span>.<a href="#section-note.1-3" class="pilcrow">¶</a></p>
+</section>
+<div id="status-of-memo">
+<section id="section-boilerplate.1">
+        <h2 id="name-status-of-this-memo">
+<a href="#name-status-of-this-memo" class="section-name selfRef">Status of This Memo</a>
+        </h2>
+<p id="section-boilerplate.1-1">
+        This Internet-Draft is submitted in full conformance with the
+        provisions of BCP 78 and BCP 79.<a href="#section-boilerplate.1-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-2">
+        Internet-Drafts are working documents of the Internet Engineering Task
+        Force (IETF). Note that other groups may also distribute working
+        documents as Internet-Drafts. The list of current Internet-Drafts is
+        at <span><a href="https://datatracker.ietf.org/drafts/current/">https://datatracker.ietf.org/drafts/current/</a></span>.<a href="#section-boilerplate.1-2" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-3">
+        Internet-Drafts are draft documents valid for a maximum of six months
+        and may be updated, replaced, or obsoleted by other documents at any
+        time. It is inappropriate to use Internet-Drafts as reference
+        material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.1-4">
+        This Internet-Draft will expire on 23 April 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="copyright">
+<section id="section-boilerplate.2">
+        <h2 id="name-copyright-notice">
+<a href="#name-copyright-notice" class="section-name selfRef">Copyright Notice</a>
+        </h2>
+<p id="section-boilerplate.2-1">
+            Copyright (c) 2025 IETF Trust and the persons identified as the
+            document authors. All rights reserved.<a href="#section-boilerplate.2-1" class="pilcrow">¶</a></p>
+<p id="section-boilerplate.2-2">
+            This document is subject to BCP 78 and the IETF Trust's Legal
+            Provisions Relating to IETF Documents
+            (<span><a href="https://trustee.ietf.org/license-info">https://trustee.ietf.org/license-info</a></span>) in effect on the date of
+            publication of this document. Please review these documents
+            carefully, as they describe your rights and restrictions with
+            respect to this document. Code Components extracted from this
+            document must include Revised BSD License text as described in
+            Section 4.e of the Trust Legal Provisions and are provided without
+            warranty as described in the Revised BSD License.<a href="#section-boilerplate.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="toc">
+<section id="section-toc.1">
+        <a href="#" onclick="scroll(0,0)" class="toplink">▲</a><h2 id="name-table-of-contents">
+<a href="#name-table-of-contents" class="section-name selfRef">Table of Contents</a>
+        </h2>
+<nav class="toc"><ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1">
+            <p id="section-toc.1-1.1.1" class="keepWithNext"><a href="#section-1" class="auto internal xref">1</a>.  <a href="#name-introduction" class="internal xref">Introduction</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2">
+            <p id="section-toc.1-1.2.1" class="keepWithNext"><a href="#section-2" class="auto internal xref">2</a>.  <a href="#name-conventions-and-definitions" class="internal xref">Conventions and Definitions</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.2.2.1">
+                <p id="section-toc.1-1.2.2.1.1" class="keepWithNext"><a href="#section-2.1" class="auto internal xref">2.1</a>.  <a href="#name-terminology" class="internal xref">Terminology</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3">
+            <p id="section-toc.1-1.3.1"><a href="#section-3" class="auto internal xref">3</a>.  <a href="#name-mechanism-overview" class="internal xref">Mechanism Overview</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.1">
+                <p id="section-toc.1-1.3.2.1.1"><a href="#section-3.1" class="auto internal xref">3.1</a>.  <a href="#name-raw-public-key-rpk" class="internal xref">Raw Public Key (RPK)</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
+                <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-pkix-certificate-based" class="internal xref">PKIX (Certificate-Based)</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
+            <p id="section-toc.1-1.4.1"><a href="#section-4" class="auto internal xref">4</a>.  <a href="#name-benefits-of-signed-ech-conf" class="internal xref">Benefits of Signed ECH Configurations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.1">
+                <p id="section-toc.1-1.4.2.1.1"><a href="#section-4.1" class="auto internal xref">4.1</a>.  <a href="#name-distinct-public-names-witho" class="internal xref">Distinct Public Names Without CA Certificates</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.2">
+                <p id="section-toc.1-1.4.2.2.1"><a href="#section-4.2" class="auto internal xref">4.2</a>.  <a href="#name-faster-and-safer-key-rotati" class="internal xref">Faster and Safer Key Rotation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.3">
+                <p id="section-toc.1-1.4.2.3.1"><a href="#section-4.3" class="auto internal xref">4.3</a>.  <a href="#name-out-of-band-distribution-sy" class="internal xref">Out-of-Band Distribution Synergy</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4.2.4">
+                <p id="section-toc.1-1.4.2.4.1"><a href="#section-4.4" class="auto internal xref">4.4</a>.  <a href="#name-design-simplicity" class="internal xref">Design Simplicity</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5">
+            <p id="section-toc.1-1.5.1"><a href="#section-5" class="auto internal xref">5</a>.  <a href="#name-protocol-elements" class="internal xref">Protocol Elements</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1">
+                <p id="section-toc.1-1.5.2.1.1"><a href="#section-5.1" class="auto internal xref">5.1</a>.  <a href="#name-ech-authentication-extensio" class="internal xref">ECH authentication extension (<code>ech_auth</code>)</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.1.2.1">
+                    <p id="section-toc.1-1.5.2.1.2.1.1"><a href="#section-5.1.1" class="auto internal xref">5.1.1</a>.  <a href="#name-signature-computation" class="internal xref">Signature Computation</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2">
+                <p id="section-toc.1-1.5.2.2.1"><a href="#section-5.2" class="auto internal xref">5.2</a>.  <a href="#name-tls-extensions-for-ech-conf" class="internal xref">TLS Extensions for ECH Config Update</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2.2.1">
+                    <p id="section-toc.1-1.5.2.2.2.1.1"><a href="#section-5.2.1" class="auto internal xref">5.2.1</a>.  <a href="#name-encryptedextensions-hellore" class="internal xref">EncryptedExtensions / HelloRetryRequest Delivery</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2.2.2">
+                    <p id="section-toc.1-1.5.2.2.2.2.1"><a href="#section-5.2.2" class="auto internal xref">5.2.2</a>.  <a href="#name-server-behavior" class="internal xref">Server Behavior</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2.2.3">
+                    <p id="section-toc.1-1.5.2.2.2.3.1"><a href="#section-5.2.3" class="auto internal xref">5.2.3</a>.  <a href="#name-client-behavior" class="internal xref">Client Behavior</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2.2.4">
+                    <p id="section-toc.1-1.5.2.2.2.4.1"><a href="#section-5.2.4" class="auto internal xref">5.2.4</a>.  <a href="#name-backward-compatibility" class="internal xref">Backward Compatibility</a></p>
+</li>
+                </ul>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6">
+            <p id="section-toc.1-1.6.1"><a href="#section-6" class="auto internal xref">6</a>.  <a href="#name-example-exchange" class="internal xref">Example Exchange</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.1">
+                <p id="section-toc.1-1.6.2.1.1"><a href="#section-6.1" class="auto internal xref">6.1</a>.  <a href="#name-initial-setup" class="internal xref">Initial Setup</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.2">
+                <p id="section-toc.1-1.6.2.2.1"><a href="#section-6.2" class="auto internal xref">6.2</a>.  <a href="#name-successful-ech-with-update" class="internal xref">Successful ECH with Update</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.6.2.3">
+                <p id="section-toc.1-1.6.2.3.1"><a href="#section-6.3" class="auto internal xref">6.3</a>.  <a href="#name-ech-rejection-with-recovery" class="internal xref">ECH Rejection with Recovery</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-security-considerations" class="internal xref">Security Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-passive-attackers" class="internal xref">Passive Attackers</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2">
+                <p id="section-toc.1-1.7.2.2.1"><a href="#section-7.2" class="auto internal xref">7.2</a>.  <a href="#name-active-network-attackers" class="internal xref">Active Network Attackers</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2.2.1">
+                    <p id="section-toc.1-1.7.2.2.2.1.1"><a href="#section-7.2.1" class="auto internal xref">7.2.1</a>.  <a href="#name-initial-trust-bootstrap" class="internal xref">Initial Trust Bootstrap</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2.2.2">
+                    <p id="section-toc.1-1.7.2.2.2.2.1"><a href="#section-7.2.2" class="auto internal xref">7.2.2</a>.  <a href="#name-handshake-integrity" class="internal xref">Handshake Integrity</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.3">
+                <p id="section-toc.1-1.7.2.3.1"><a href="#section-7.3" class="auto internal xref">7.3</a>.  <a href="#name-compromised-keys" class="internal xref">Compromised Keys</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.3.2.1">
+                    <p id="section-toc.1-1.7.2.3.2.1.1"><a href="#section-7.3.1" class="auto internal xref">7.3.1</a>.  <a href="#name-signature-verification" class="internal xref">Signature Verification</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.3.2.2">
+                    <p id="section-toc.1-1.7.2.3.2.2.1"><a href="#section-7.3.2" class="auto internal xref">7.3.2</a>.  <a href="#name-key-management" class="internal xref">Key Management</a></p>
+</li>
+                </ul>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4">
+                <p id="section-toc.1-1.7.2.4.1"><a href="#section-7.4" class="auto internal xref">7.4</a>.  <a href="#name-implementation-vulnerabilit" class="internal xref">Implementation Vulnerabilities</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4.2.1">
+                    <p id="section-toc.1-1.7.2.4.2.1.1"><a href="#section-7.4.1" class="auto internal xref">7.4.1</a>.  <a href="#name-failure-handling" class="internal xref">Failure Handling</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.4.2.2">
+                    <p id="section-toc.1-1.7.2.4.2.2.1"><a href="#section-7.4.2" class="auto internal xref">7.4.2</a>.  <a href="#name-denial-of-service-considera" class="internal xref">Denial of Service Considerations</a></p>
+</li>
+                </ul>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.8">
+            <p id="section-toc.1-1.8.1"><a href="#section-8" class="auto internal xref">8</a>.  <a href="#name-privacy-considerations" class="internal xref">Privacy Considerations</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9">
+            <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-echconfig-extension" class="internal xref">ECHConfig Extension</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-x509-certificate-extension-" class="internal xref">X.509 Certificate Extension OID</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
+                <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-ech-authentication-methods-" class="internal xref">ECH Authentication Methods Registry</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10">
+            <p id="section-toc.1-1.10.1"><a href="#section-10" class="auto internal xref">10</a>. <a href="#name-deployment-considerations" class="internal xref">Deployment Considerations</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.1">
+                <p id="section-toc.1-1.10.2.1.1"><a href="#section-10.1" class="auto internal xref">10.1</a>.  <a href="#name-method-selection" class="internal xref">Method Selection</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.2">
+                <p id="section-toc.1-1.10.2.2.1"><a href="#section-10.2" class="auto internal xref">10.2</a>.  <a href="#name-size-considerations" class="internal xref">Size Considerations</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.3">
+                <p id="section-toc.1-1.10.2.3.1"><a href="#section-10.3" class="auto internal xref">10.3</a>.  <a href="#name-key-rotation" class="internal xref">Key Rotation</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.4">
+                <p id="section-toc.1-1.10.2.4.1"><a href="#section-10.4" class="auto internal xref">10.4</a>.  <a href="#name-pin-management" class="internal xref">Pin Management</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.10.2.5">
+                <p id="section-toc.1-1.10.2.5.1"><a href="#section-10.5" class="auto internal xref">10.5</a>.  <a href="#name-update-consistency" class="internal xref">Update Consistency</a></p>
+</li>
+            </ul>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+</li>
+        </ul>
+</nav>
+</section>
+</div>
+<div id="introduction">
+<section id="section-1">
+      <h2 id="name-introduction">
+<a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
+      </h2>
+<p id="section-1-1">Deployment of TLS Encrypted ClientHello (ECH) requires that clients obtain the server's current ECH configuration (ECHConfig) before initiating a connection. Current mechanisms distribute ECHConfig data via DNS HTTPS resource records <span>[<a href="#RFC9460" class="cite xref">RFC9460</a>]</span> or HTTPS well-known URIs <span>[<a href="#I-D.ietf-tls-wkech" class="cite xref">I-D.ietf-tls-wkech</a>]</span>, allowing servers to publish their ECHConfigList prior to connection establishment.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-2">While ECH includes a retry mechanism where servers can send updated ECHConfigList values during the handshake (via HelloRetryRequest or EncryptedExtensions), the base ECH specification instructs clients not to cache these configurations <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>. Instead, servers must authenticate the outer handshake using a certificate for the public name, and clients must obtain updated configurations through out-of-band mechanisms for future connections.<a href="#section-1-2" class="pilcrow">¶</a></p>
+<p id="section-1-3">This approach limits ECH deployment in two key ways. First, it restricts the usable public names to those for which operators can obtain certificates, reducing the potential anonymity set. Second, it creates delays in key rotation recovery, as clients cannot immediately use updated configurations received during the handshake.<a href="#section-1-3" class="pilcrow">¶</a></p>
+<p id="section-1-4">This document introduces an Authenticated ECH Config Update mechanism to securely deliver and rotate ECHConfig data in-band, during a TLS handshake. The goal is to allow servers to frequently update ECH keys (for example, to limit the lifetime of keys or respond to compromise). This mechanism does not prescribe or rely on fallback to cleartext; when ECH fails with this mechanism, the connection is terminated and retried with updated configurations rather than exposing the protected name.<a href="#section-1-4" class="pilcrow">¶</a></p>
+<p id="section-1-5">The mechanism supports two authentication methods through the <code>ech_auth</code> ECHConfig extension:<a href="#section-1-5" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-1-6">
+<li id="section-1-6.1">
+          <p id="section-1-6.1.1">Raw Public Key (RPK) - SPKI hashing for configuration-specific trust<a href="#section-1-6.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li id="section-1-6.2">
+          <p id="section-1-6.2.1">PKIX - Certificate-based signing with a critical X.509 extension<a href="#section-1-6.2.1" class="pilcrow">¶</a></p>
+</li>
+      </ol>
+<p id="section-1-7">Each ECHConfig carries at most one signature using the specified method. By authenticating ECH configs independently, the mechanism makes ECH key distribution orthogonal to transport. The same signed ECHConfig artifact can be conveyed via DNS, HTTPS, or the TLS handshake itself. The client will accept it only if the accompanying signature or proof is valid under one of its trust modes.<a href="#section-1-7" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="conventions-and-definitions">
+<section id="section-2">
+      <h2 id="name-conventions-and-definitions">
+<a href="#section-2" class="section-number selfRef">2. </a><a href="#name-conventions-and-definitions" class="section-name selfRef">Conventions and Definitions</a>
+      </h2>
+<p id="section-2-1">The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this document are to be interpreted as described in BCP 14 <span>[<a href="#RFC2119" class="cite xref">RFC2119</a>]</span> <span>[<a href="#RFC8174" class="cite xref">RFC8174</a>]</span> when, and only when, they appear in all capitals.<a href="#section-2-1" class="pilcrow">¶</a></p>
+<p id="section-2-2">This document assumes familiarity with TLS 1.3 <span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span> and the ECH specification <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, referred to here as simply "ECH".<a href="#section-2-2" class="pilcrow">¶</a></p>
+<p id="section-2-3">The following acronyms are used throughout this document:<a href="#section-2-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-2-4.1">
+          <p id="section-2-4.1.1">RPK: Raw Public Key - A public key used directly without a certificate wrapper<a href="#section-2-4.1.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.2">
+          <p id="section-2-4.2.1">PKIX: Public Key Infrastructure using X.509 - The standard certificate-based PKI used on the web<a href="#section-2-4.2.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.3">
+          <p id="section-2-4.3.1">SPKI: SubjectPublicKeyInfo - The ASN.1 structure containing a public key and its algorithm identifier<a href="#section-2-4.3.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.4">
+          <p id="section-2-4.4.1">HPKE: Hybrid Public Key Encryption - The encryption scheme used by ECH as defined in <span>[<a href="#RFC9180" class="cite xref">RFC9180</a>]</span><a href="#section-2-4.4.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.5">
+          <p id="section-2-4.5.1">DER: Distinguished Encoding Rules - A binary encoding format for ASN.1 structures<a href="#section-2-4.5.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.6">
+          <p id="section-2-4.6.1">OCSP: Online Certificate Status Protocol - A method for checking certificate revocation status<a href="#section-2-4.6.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.7">
+          <p id="section-2-4.7.1">CRL: Certificate Revocation List - A list of revoked certificates published by a Certificate Authority<a href="#section-2-4.7.1" class="pilcrow">¶</a></p>
+</li>
+        <li class="normal" id="section-2-4.8">
+          <p id="section-2-4.8.1">CA: Certificate Authority - An entity that issues digital certificates<a href="#section-2-4.8.1" class="pilcrow">¶</a></p>
+</li>
+      </ul>
+<div id="terminology">
+<section id="section-2.1">
+        <h3 id="name-terminology">
+<a href="#section-2.1" class="section-number selfRef">2.1. </a><a href="#name-terminology" class="section-name selfRef">Terminology</a>
+        </h3>
+<span class="break"></span><dl class="dlParallel" id="section-2.1-1">
+          <dt id="section-2.1-1.1">ECHConfig:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.2">
+            <p id="section-2.1-1.2.1">An individual ECH configuration structure as defined in <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, which includes fields such as <code>public_name</code>, <code>public_key</code> (HPKE key), and extensions.<a href="#section-2.1-1.2.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-1.3">ECHConfigList:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.4">
+            <p id="section-2.1-1.4.1">A sequence of one or more ECHConfig structures as defined in ECH (a byte string that starts with a 16-bit length and may contain multiple concatenated ECHConfig values).<a href="#section-2.1-1.4.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-1.5">ECHConfigTBS (To-Be-Signed):</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.6">
+            <p id="section-2.1-1.6.1">The serialized ECHConfig structure with the <code>ech_auth</code> extension, but with the <code>signature</code> field within <code>ech_auth</code> set to zero-length. This includes all ECHConfig fields and the <code>ech_auth</code> extension's <code>method</code> and <code>trusted_keys</code> fields.<a href="#section-2.1-1.6.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-1.7">authenticated ECHConfig:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.8">
+            <p id="section-2.1-1.8.1">An ECHConfig that contains an <code>ech_auth</code> extension with a valid signature in the <code>signature</code> field, allowing clients to verify its authenticity.<a href="#section-2.1-1.8.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-1.9">public name:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.10">
+            <p id="section-2.1-1.10.1">The value of the <code>public_name</code> field in the ECHConfig, i.e., the authoritative DNS name for updates and validation associated with that configuration. This name is not required to be the ClientHelloOuter SNI, though deployments sometimes choose to align them.<a href="#section-2.1-1.10.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-1.11">retry_configs:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.12">
+            <p id="section-2.1-1.12.1">The ECHConfigList sent by a server in HelloRetryRequest or EncryptedExtensions when ECH is rejected, as defined in <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>.<a href="#section-2.1-1.12.1" class="pilcrow">¶</a></p>
+</dd>
+          <dd class="break"></dd>
+<dt id="section-2.1-1.13">outer SNI:</dt>
+          <dd style="margin-left: 1.5em" id="section-2.1-1.14">
+            <p id="section-2.1-1.14.1">The Server Name Indication value sent in the outer (unencrypted) ClientHello when ECH is used. This is typically the ECHConfig's <code>public_name</code> or another name that preserves client privacy.<a href="#section-2.1-1.14.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+</dl>
+<p id="section-2.1-2">The reader should recall that in TLS 1.3, the server's EncryptedExtensions message is encrypted and integrity-protected with handshake keys <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>. New extensions defined as part of EncryptedExtensions are not visible to network attackers and cannot be modified by an attacker without detection. Additionally, "certificate verification" refers to the standard X.509 validation process (chain building, signature and expiration checking, name matching, etc.) unless otherwise specified.<a href="#section-2.1-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="mechanism-overview">
+<section id="section-3">
+      <h2 id="name-mechanism-overview">
+<a href="#section-3" class="section-number selfRef">3. </a><a href="#name-mechanism-overview" class="section-name selfRef">Mechanism Overview</a>
+      </h2>
+<p id="section-3-1">This specification defines three methods for authenticating ECH configuration updates:<a href="#section-3-1" class="pilcrow">¶</a></p>
+<div id="raw-public-key-rpk">
+<section id="section-3.1">
+        <h3 id="name-raw-public-key-rpk">
+<a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-raw-public-key-rpk" class="section-name selfRef">Raw Public Key (RPK)</a>
+        </h3>
+<p id="section-3.1-1">The ECHConfigList update is authenticated by a Raw Public Key (RPK). The ECHConfig's <code>ech_auth</code> extension carries a set of <code>trusted_keys</code>, each value being <code>SHA-256(SPKI)</code> of an RPK that is authorized to sign an update.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1-2">A client receiving an authenticated update (e.g., in HRR/EE <code>retry_configs</code>) MUST:<a href="#section-3.1-2" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-3.1-3">
+<li id="section-3.1-3.1">
+            <p id="section-3.1-3.1.1">Extract the authenticator key's SubjectPublicKeyInfo (SPKI) and compute <code>sha256(spki)</code>. Verify membership in <code>trusted_keys</code>.<a href="#section-3.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-3.1-3.2">
+            <p id="section-3.1-3.2.1">Verify that <code>not_after</code> is strictly greater than the client's current time.<a href="#section-3.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-3.1-3.3">
+            <p id="section-3.1-3.3.1">Verify the signature over the <code>to_be_signed</code> input using the authenticator key.<a href="#section-3.1-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-3.1-4">Clients MAY cache <code>trusted_keys</code> only for the lifetime of the associated ECHConfig and solely to authenticate a single retry-configs update per fresh connection attempt. Upon successful installation of a new ECHConfigList (via an authenticated update or a fresher out-of-band fetch), or upon expiration of the cached configuration, clients MUST clear any RPK state learned from the prior configuration.<a href="#section-3.1-4" class="pilcrow">¶</a></p>
+<p id="section-3.1-5">This specification defines no long-term pinning and no public-name authentication via RPK.<a href="#section-3.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="pkix-certificate-based">
+<section id="section-3.2">
+        <h3 id="name-pkix-certificate-based">
+<a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-pkix-certificate-based" class="section-name selfRef">PKIX (Certificate-Based)</a>
+        </h3>
+<p id="section-3.2-1">The update is signed with the private key corresponding to an X.509 certificate that chains to a locally trusted root and is valid for the ECHConfig <code>public_name</code> (i.e., appears in the certificate's SAN).<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<p id="section-3.2-2">The leaf certificate MUST include a new, critical X.509 v3 extension <code>id-pe-echConfigSigning</code> (OID: TBD) whose presence indicates authorization to sign ECH configuration updates for the DNS names in the certificate's SAN. Clients:<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.2-3.1">
+            <p id="section-3.2-3.1.1">MUST validate the certificate chain according to local policy;<a href="#section-3.2-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-3.2">
+            <p id="section-3.2-3.2.1">MUST confirm the SAN covers the ECHConfig <code>public_name</code>;<a href="#section-3.2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-3.3">
+            <p id="section-3.2-3.3.1">MUST confirm the critical <code>id-pe-echConfigSigning</code> extension is present in the leaf; and<a href="#section-3.2-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-3.4">
+            <p id="section-3.2-3.4.1">MUST verify the ECH update signature with the leaf key.<a href="#section-3.2-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-3.2-4">When this critical extension is present, clients MUST NOT accept the certificate for TLS server authentication. The <code>not_after</code> field in <code>ech_auth.signature</code> MUST be 0 for PKIX.<a href="#section-3.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="benefits-of-signed-ech-configurations">
+<section id="section-4">
+      <h2 id="name-benefits-of-signed-ech-conf">
+<a href="#section-4" class="section-number selfRef">4. </a><a href="#name-benefits-of-signed-ech-conf" class="section-name selfRef">Benefits of Signed ECH Configurations</a>
+      </h2>
+<p id="section-4-1">By treating ECH configurations as signed objects, this mechanism decouples trust in ECH keys from the TLS handshake's certificate validation of the origin. This enables several important capabilities:<a href="#section-4-1" class="pilcrow">¶</a></p>
+<div id="distinct-public-names-without-ca-certificates">
+<section id="section-4.1">
+        <h3 id="name-distinct-public-names-witho">
+<a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-distinct-public-names-witho" class="section-name selfRef">Distinct Public Names Without CA Certificates</a>
+        </h3>
+<p id="section-4.1-1">A server can use many different public hostnames (even per-client, per-connection unique ones) to maximize the anonymity set or for other operational reasons <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, without having to obtain certificates for each. The RPK method allows the client to authenticate the server's ability to update ECH keys for those public names via a key hash, rather than via a CA-issued certificate. This was not possible under the original ECH design, which required a valid certificate for any public name used <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="faster-and-safer-key-rotation">
+<section id="section-4.2">
+        <h3 id="name-faster-and-safer-key-rotati">
+<a href="#section-4.2" class="section-number selfRef">4.2. </a><a href="#name-faster-and-safer-key-rotati" class="section-name selfRef">Faster and Safer Key Rotation</a>
+        </h3>
+<p id="section-4.2-1">The server can proactively push a new ECHConfig to clients shortly before rotating keys, ensuring clients receive it immediately. The update objects include an expiration timestamp (<code>not_after</code>), allowing servers to bound the lifetime of configurations to coordinate key rollover. Clients will reject expired configurations.<a href="#section-4.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="out-of-band-distribution-synergy">
+<section id="section-4.3">
+        <h3 id="name-out-of-band-distribution-sy">
+<a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-out-of-band-distribution-sy" class="section-name selfRef">Out-of-Band Distribution Synergy</a>
+        </h3>
+<p id="section-4.3-1">Because the same authentication methods are defined for in-band and out-of-band, an ECHConfig obtained via DNS can carry the same signature that a TLS in-band update would, allowing clients to verify it even if their DNS channel is not fully trusted. For instance, a client might obtain an ECHConfig via DNS; if that ECHConfig has RPK trusted_keys, subsequent updates via TLS will be signed by that key, protecting against any earlier undetected DNS tampering.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="design-simplicity">
+<section id="section-4.4">
+        <h3 id="name-design-simplicity">
+<a href="#section-4.4" class="section-number selfRef">4.4. </a><a href="#name-design-simplicity" class="section-name selfRef">Design Simplicity</a>
+        </h3>
+<p id="section-4.4-1">This design attempts to minimize complexity. It does not use explicit key identifiers or complicated pin rotation metadata. For the RPK method, the pinning model is kept simple (a list of allowed signing keys established from an authenticated initial configuration); pin revocation or addition is handled by simply signing a new update that changes the list (clients trust the new list if it is signed by a currently trusted key). There is no "next update time" field that requires clients to preemptively fetch updates; instead, updates are fetched when provided by the server or when the client next connects. The mechanism is agnostic to the transport by which the client obtained the initial ECHConfig – whether via DNS SVCB/HTTPS RR (as in <span>[<a href="#I-D.ietf-tls-svcb-ech" class="cite xref">I-D.ietf-tls-svcb-ech</a>]</span>), via a well-known HTTPS endpoint <span>[<a href="#I-D.ietf-tls-wkech" class="cite xref">I-D.ietf-tls-wkech</a>]</span>, or via some provisioning protocol, the subsequent updates use the same verification process.<a href="#section-4.4-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="wire-formats">
+<section id="section-5">
+      <h2 id="name-protocol-elements">
+<a href="#section-5" class="section-number selfRef">5. </a><a href="#name-protocol-elements" class="section-name selfRef">Protocol Elements</a>
+      </h2>
+<p id="section-5-1">This section specifies the new extensions and data structures in detail. All multi-byte values are in network byte order (big-endian). The syntax uses the TLS presentation language from <span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span>.<a href="#section-5-1" class="pilcrow">¶</a></p>
+<div id="ech-authentication-extension-echauth">
+<section id="section-5.1">
+        <h3 id="name-ech-authentication-extensio">
+<a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-ech-authentication-extensio" class="section-name selfRef">ECH authentication extension (<code>ech_auth</code>)</a>
+        </h3>
+<p id="section-5.1-1">The <code>ech_auth</code> information is carried as an ECHConfig extension inside the ECHConfig structure and is used both when distributed via DNS and when delivered in TLS (HRR/EE) as part of <code>retry_configs</code>. This single extension conveys policy (which signature methods and pins are supported) and, when present, a signed authenticator that allows clients to verify and install the ECHConfig immediately.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
+<p id="section-5.1-2">The <code>ech_auth</code> extension MUST be the last extension in the ECHConfig's extension list. This ensures that the signature in the extension covers all other extensions in the ECHConfigTBS. Implementations MUST place this extension last when constructing an ECHConfig, and MUST reject ECHConfigs where <code>ech_auth</code> is not the last extension.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
+<p id="section-5.1-3">The <code>ech_auth</code> extension has the following structure:<a href="#section-5.1-3" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1-4">
+<pre>
+enum {
+    none(0),
+    rpk(1),
+    pkix(2),
+    (255)
+} ECHAuthMethod;
+
+// We reuse the TLS HashAlgorithm registry values (though TLS 1.3 itself
+// doesn't use this enum directly, the registry still exists)
+// For now, implementations MUST use sha256(4). Future specs may allow others.
+opaque SPKIHash&lt;32..32&gt;;  // SHA-256 hash of DER-encoded SPKI
+</pre><a href="#section-5.1-4" class="pilcrow">¶</a>
+</div>
+<p id="section-5.1-5">struct {
+      ECHAuthMethod method;              // Single authentication method
+      SPKIHash trusted_keys&lt;0..2^16-1&gt;;  // RPK-only; SHA-256 hashes per IANA TLS
+                                          // HashAlgorithm registry value 4;
+                                          // zero-length if method != rpk<a href="#section-5.1-5" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1-6">
+<pre>
+  // Optional signed authenticator. Present when the sender wishes
+  // to provide a signed ECHConfig (e.g., in TLS retry_configs, or
+  // pre-signed in DNS). struct {
+    opaque authenticator&lt;1..2^16-1&gt;; // method-specific material (see below)
+    uint64 not_after;                 // Unix timestamp; used by RPK;
+                                      // MUST be 0 for PKIX SignatureScheme algorithm;
+    opaque signature&lt;1..2^16-1&gt;;
+  } signature;                        // Optional; zero-length if not present
+} ECHAuth;
+</pre><a href="#section-5.1-6" class="pilcrow">¶</a>
+</div>
+<div id="signature-computation">
+<section id="section-5.1.1">
+          <h4 id="name-signature-computation">
+<a href="#section-5.1.1" class="section-number selfRef">5.1.1. </a><a href="#name-signature-computation" class="section-name selfRef">Signature Computation</a>
+          </h4>
+<p id="section-5.1.1-1">The signature is computed over the concatenation:<a href="#section-5.1.1-1" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1.1-2">
+<pre>
+context_label = "TLS-ECH-AUTH-v1"  // ASCII, no NUL
+to_be_signed = context_label || ECHConfigTBS
+</pre><a href="#section-5.1.1-2" class="pilcrow">¶</a>
+</div>
+<p id="section-5.1.1-3">where:<a href="#section-5.1.1-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1.1-4.1">
+              <p id="section-5.1.1-4.1.1"><code>ECHConfigTBS</code> (To-Be-Signed) is the serialized ECHConfig structure including
+the <code>ech_auth</code> extension, but with the <code>signature</code> field within <code>ech_auth</code>
+set to zero-length. This means it includes:<a href="#section-5.1.1-4.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1.1-4.1.2.1">
+                  <p id="section-5.1.1-4.1.2.1.1">All ECHConfig base fields (version, length, contents, etc.)<a href="#section-5.1.1-4.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+                <li class="normal" id="section-5.1.1-4.1.2.2">
+                  <p id="section-5.1.1-4.1.2.2.1">All extensions including <code>ech_auth</code> (which MUST be last)<a href="#section-5.1.1-4.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+                <li class="normal" id="section-5.1.1-4.1.2.3">
+                  <p id="section-5.1.1-4.1.2.3.1">Within <code>ech_auth</code>: the <code>method</code>, <code>trusted_keys</code>, and the authenticator/
+not_after/algorithm fields from <code>signature</code>, but NOT the actual signature
+bytes<a href="#section-5.1.1-4.1.2.3.1" class="pilcrow">¶</a></p>
+</li>
+              </ul>
+</li>
+            <li class="normal" id="section-5.1.1-4.2">
+              <p id="section-5.1.1-4.2.1">The signature is computed over this entire structure, avoiding circular
+dependency by zeroing out only the signature bytes themselves<a href="#section-5.1.1-4.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-4.3">
+              <p id="section-5.1.1-4.3.1">All multi-byte values use network byte order (big-endian)<a href="#section-5.1.1-4.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-4.4">
+              <p id="section-5.1.1-4.4.1">The serialization follows TLS 1.3 presentation language rules from RFC 8446<a href="#section-5.1.1-4.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-5.1.1-5">Including a fixed, scheme-specific context label prevents cross-protocol reuse; covering the to-be-signed ECHConfig and all <code>ech_auth</code> fields (except the signature itself) ensures integrity of parameters and pins. The <code>not_after</code> timestamp provides freshness by bounding the configuration's validity period.<a href="#section-5.1.1-5" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-6">Method-specific <code>authenticator</code>:<a href="#section-5.1.1-6" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1.1-7.1">
+              <p id="section-5.1.1-7.1.1">RPK (method=1): the DER-encoded SubjectPublicKeyInfo (SPKI) of the signing key. The client MUST compute the SHA-256 hash of the SPKI, verify that it matches one of the hashes in <code>trusted_keys</code>, check that the current time is before the <code>not_after</code> timestamp, and then verify the signature with this key. The <code>not_after</code> field is REQUIRED and MUST be a timestamp strictly greater than the client's current time at verification.<a href="#section-5.1.1-7.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-7.2">
+              <p id="section-5.1.1-7.2.1">PKIX (method=2): a CertificateEntry vector (leaf + optional intermediates) as in TLS 1.3 Certificate; the leaf MUST include the critical <code>id-pe-echConfigSigning</code> extension and be valid for the ECHConfig <code>public_name</code>. The client validates the chain, confirms the SAN includes the ECH <code>public_name</code>, confirms the critical <code>id-pe-echConfigSigning</code> extension is present in the leaf, and verifies the signature with the leaf key. The <code>not_after</code> field MUST be set to 0 (absent).<a href="#section-5.1.1-7.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-5.1.1-8">Notes:<a href="#section-5.1.1-8" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1.1-9.1">
+              <p id="section-5.1.1-9.1.1"><code>trusted_keys</code> is only used by RPK; clients MUST ignore it for PKIX.<a href="#section-5.1.1-9.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-9.2">
+              <p id="section-5.1.1-9.2.1">If <code>method</code> is <code>rpk(1)</code>, <code>trusted_keys</code> MUST contain at least one SPKI hash; otherwise it MUST be zero-length.<a href="#section-5.1.1-9.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-9.3">
+              <p id="section-5.1.1-9.3.1">A server publishing multiple ECHConfigs MAY use different methods for each to maximize client compatibility.<a href="#section-5.1.1-9.3.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-5.1.1-10">Context-specific requirements:<a href="#section-5.1.1-10" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1.1-11.1">
+              <p id="section-5.1.1-11.1.1">When carried in TLS (HelloRetryRequest or EncryptedExtensions), an <code>ech_auth</code> extension in each delivered ECHConfig MUST include a signed authenticator in <code>signature</code>, and the client MUST verify the authenticator before installing the ECHConfig.<a href="#section-5.1.1-11.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-11.2">
+              <p id="section-5.1.1-11.2.1">When carried in DNS, an <code>ech_auth</code> extension MAY omit the <code>signature</code> field (unsigned), in which case it conveys only policy (<code>method</code>, <code>trusted_keys</code>). Clients MAY use such information to attempt ECH and to bootstrap trust, but MUST NOT treat it as an authenticated update. If <code>signature</code> is present in DNS, clients SHOULD verify it per the indicated method and MAY treat the ECHConfig as authenticated upon successful verification.<a href="#section-5.1.1-11.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-5.1.1-12">The SPKI hash uses SHA-256 (value 4 in the IANA TLS HashAlgorithm registry). The rationale for using a hash rather than the full SPKI is to keep the extension compact in DNS and on the wire, and to avoid exposing full public keys in the clear. SHA-256 is universally supported and provides sufficient security. The drawback is that hash collisions or second-preimage attacks could undermine the pin – this is considered cryptographically infeasible for SHA-256 at the time of writing.<a href="#section-5.1.1-12" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-13">Note: While TLS 1.3 moved to SignatureScheme and doesn't directly use the HashAlgorithm enum, we reference the IANA registry value for clarity. Future versions of this specification could add a hash algorithm field using the TLS HashAlgorithm registry if algorithm agility becomes necessary.<a href="#section-5.1.1-13" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-14">Client behavior: When a client obtains an ECHConfig that contains an <code>ech_auth</code> extension, it SHOULD store this information along with the configuration. If the client subsequently uses this ECHConfig to initiate a connection, it relies on delivery of signed ECHConfigs in HRR/EE for in-band updates.<a href="#section-5.1.1-14" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-15">If an ECHConfig does not include <code>ech_auth</code>, the in-band update mechanism defined here is not used for that configuration.<a href="#section-5.1.1-15" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-16">Server behavior: A server that wishes to allow in-band updates MUST include <code>ech_auth</code> in the ECHConfig it publishes via DNS or other means. The server MUST set the <code>method</code> field to the authentication method it will use for this configuration. The server MUST ensure that it actually has the capability to perform the indicated method:<a href="#section-5.1.1-16" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.1.1-17.1">
+              <p id="section-5.1.1-17.1.1">If <code>method</code> is <code>rpk(1)</code>, the server needs a signing key whose SPKI hash is in <code>trusted_keys</code>. (It may have multiple keys for rotation; all keys that might sign an update before the next ECHConfig change should be listed. Pins can be added or removed by generating a new ECHConfig with an updated list and distributing it out-of-band or via an update.)<a href="#section-5.1.1-17.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.1.1-17.2">
+              <p id="section-5.1.1-17.2.1">If <code>method</code> is <code>pkix(2)</code>, the server must have a valid certificate (and chain) for the public name with the critical <code>id-pe-echConfigSigning</code> extension (Section <span><a href="#iana" class="internal xref">IANA Considerations</a> (<a href="#iana" class="auto internal xref">Section 9</a>)</span> defines the extension) available at runtime to use for signing. The certificate's public key algorithm dictates what signature algorithms are possible.<a href="#section-5.1.1-17.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+</section>
+</div>
+</section>
+</div>
+<div id="tls-extensions-for-ech-config-update">
+<section id="section-5.2">
+        <h3 id="name-tls-extensions-for-ech-conf">
+<a href="#section-5.2" class="section-number selfRef">5.2. </a><a href="#name-tls-extensions-for-ech-conf" class="section-name selfRef">TLS Extensions for ECH Config Update</a>
+        </h3>
+<div id="encryptedextensions-helloretryrequest-delivery">
+<section id="section-5.2.1">
+          <h4 id="name-encryptedextensions-hellore">
+<a href="#section-5.2.1" class="section-number selfRef">5.2.1. </a><a href="#name-encryptedextensions-hellore" class="section-name selfRef">EncryptedExtensions / HelloRetryRequest Delivery</a>
+          </h4>
+<p id="section-5.2.1-1">This specification reuses the ECH retry_configs delivery mechanism: the server sends an ECHConfigList where each ECHConfig contains the <code>ech_auth</code> extension with a signed authenticator. The server MAY include multiple ECHConfigs with different authentication methods (e.g., one with PKIX and one with RPK) to maximize client compatibility. There is no separate TLS extension for negotiation.<a href="#section-5.2.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="server-behavior">
+<section id="section-5.2.2">
+          <h4 id="name-server-behavior">
+<a href="#section-5.2.2" class="section-number selfRef">5.2.2. </a><a href="#name-server-behavior" class="section-name selfRef">Server Behavior</a>
+          </h4>
+<p id="section-5.2.2-1">When a server receives a ClientHello with the <code>encrypted_client_hello</code> extension, it processes ECH per <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>. If the server has an updated ECHConfigList to distribute:<a href="#section-5.2.2-1" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.2.2-2">
+<li id="section-5.2.2-2.1">
+              <p id="section-5.2.2-2.1.1">ECH Accepted: If the server successfully decrypts the ClientHelloInner, it completes the handshake using the inner ClientHello. The server MAY include authenticated ECHConfigs in EncryptedExtensions if an update is available.<a href="#section-5.2.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li id="section-5.2.2-2.2">
+              <p id="section-5.2.2-2.2.1">ECH Rejected: If the server cannot decrypt the ClientHelloInner, it SHOULD proceed with the outer handshake and include authenticated ECHConfigs in EncryptedExtensions. This allows the client to immediately retry with the correct configuration.<a href="#section-5.2.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          </ol>
+<p id="section-5.2.2-3">The server prepares authenticated updates by:<a href="#section-5.2.2-3" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.2-4.1">
+              <p id="section-5.2.2-4.1.1">Using the authentication method specified in the ECHConfig's <code>ech_auth.method</code><a href="#section-5.2.2-4.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.2.2-4.2">
+              <p id="section-5.2.2-4.2.1">Creating the appropriate authenticator (RPK signature or PKIX certificate chain)<a href="#section-5.2.2-4.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.2.2-4.3">
+              <p id="section-5.2.2-4.3.1">Including the authenticator in the ECHConfig's <code>ech_auth.signature</code> field<a href="#section-5.2.2-4.3.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.2.2-4.4">
+              <p id="section-5.2.2-4.4.1">Sending the ECHConfigList via the existing <code>retry_configs</code> mechanism<a href="#section-5.2.2-4.4.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+</section>
+</div>
+<div id="client-behavior">
+<section id="section-5.2.3">
+          <h4 id="name-client-behavior">
+<a href="#section-5.2.3" class="section-number selfRef">5.2.3. </a><a href="#name-client-behavior" class="section-name selfRef">Client Behavior</a>
+          </h4>
+<p id="section-5.2.3-1">When a client retrieves an ECHConfig (e.g., from DNS), it examines the <code>ech_auth</code> extension and records:<a href="#section-5.2.3-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-2.1">
+              <p id="section-5.2.3-2.1.1">The authentication <code>method</code> (RPK or PKIX)<a href="#section-5.2.3-2.1.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.2.3-2.2">
+              <p id="section-5.2.3-2.2.1">Any <code>trusted_keys</code> for RPK validation<a href="#section-5.2.3-2.2.1" class="pilcrow">¶</a></p>
+</li>
+            <li class="normal" id="section-5.2.3-2.3">
+              <p id="section-5.2.3-2.3.1">Any pre-distributed signature for immediate validation<a href="#section-5.2.3-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          </ul>
+<p id="section-5.2.3-3">During the TLS handshake, upon receiving an ECHConfigList in HRR or EE:<a href="#section-5.2.3-3" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-5.2.3-4">
+<li id="section-5.2.3-4.1">
+              <p id="section-5.2.3-4.1.1">Validation: The client validates the authenticator according to its method:<a href="#section-5.2.3-4.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-4.1.2.1">
+                  <p id="section-5.2.3-4.1.2.1.1">RPK: Computes the SHA-256 hash of the provided SPKI, verifies it matches one in <code>trusted_keys</code>, then verifies the signature<a href="#section-5.2.3-4.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+                <li class="normal" id="section-5.2.3-4.1.2.2">
+                  <p id="section-5.2.3-4.1.2.2.1">PKIX: Validates the certificate chain, verifies the leaf certificate covers the ECHConfig's <code>public_name</code>, checks for the critical <code>id-pe-echConfigSigning</code> extension, then verifies the signature<a href="#section-5.2.3-4.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              </ul>
+</li>
+            <li id="section-5.2.3-4.2">
+              <p id="section-5.2.3-4.2.1">Validity Checking: The client checks temporal validity:<a href="#section-5.2.3-4.2.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-4.2.2.1">
+                  <p id="section-5.2.3-4.2.2.1.1">For RPK: Verifies current time is before <code>not_after</code><a href="#section-5.2.3-4.2.2.1.1" class="pilcrow">¶</a></p>
+</li>
+                <li class="normal" id="section-5.2.3-4.2.2.2">
+                  <p id="section-5.2.3-4.2.2.2.1">For PKIX: Verifies certificate validity period (the <code>not_after</code> field MUST be 0)<a href="#section-5.2.3-4.2.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              </ul>
+</li>
+            <li id="section-5.2.3-4.3">
+              <p id="section-5.2.3-4.3.1">Installation and Retry (see Appendix A for state diagram):<a href="#section-5.2.3-4.3.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-4.3.2.1">
+                  <p id="section-5.2.3-4.3.2.1.1">If validation succeeds and this was an ECH rejection (outer handshake):<a href="#section-5.2.3-4.3.2.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-4.3.2.1.2.1">
+                      <p id="section-5.2.3-4.3.2.1.2.1.1">The client treats the retry_configs as authentic per <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>], <a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-25#section-6.1.6" class="relref">Section 6.1.6</a></span><a href="#section-5.2.3-4.3.2.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+                    <li class="normal" id="section-5.2.3-4.3.2.1.2.2">
+                      <p id="section-5.2.3-4.3.2.1.2.2.1">The client MUST terminate the connection and retry with the new ECHConfig<a href="#section-5.2.3-4.3.2.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+                    <li class="normal" id="section-5.2.3-4.3.2.1.2.3">
+                      <p id="section-5.2.3-4.3.2.1.2.3.1">The retry does not consider the server's TLS certificate for the public name<a href="#section-5.2.3-4.3.2.1.2.3.1" class="pilcrow">¶</a></p>
+</li>
+                  </ul>
+</li>
+                <li class="normal" id="section-5.2.3-4.3.2.2">
+                  <p id="section-5.2.3-4.3.2.2.1">If validation succeeds and this was an ECH acceptance:<a href="#section-5.2.3-4.3.2.2.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-4.3.2.2.2.1">
+                      <p id="section-5.2.3-4.3.2.2.2.1.1">The client caches the new ECHConfig for future connections<a href="#section-5.2.3-4.3.2.2.2.1.1" class="pilcrow">¶</a></p>
+</li>
+                  </ul>
+</li>
+                <li class="normal" id="section-5.2.3-4.3.2.3">
+                  <p id="section-5.2.3-4.3.2.3.1">If validation fails:<a href="#section-5.2.3-4.3.2.3.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-5.2.3-4.3.2.3.2.1">
+                      <p id="section-5.2.3-4.3.2.3.2.1.1">The client MUST treat this as if the server's TLS certificate could not be validated<a href="#section-5.2.3-4.3.2.3.2.1.1" class="pilcrow">¶</a></p>
+</li>
+                    <li class="normal" id="section-5.2.3-4.3.2.3.2.2">
+                      <p id="section-5.2.3-4.3.2.3.2.2.1">The client MUST NOT use the retry_configs<a href="#section-5.2.3-4.3.2.3.2.2.1" class="pilcrow">¶</a></p>
+</li>
+                    <li class="normal" id="section-5.2.3-4.3.2.3.2.3">
+                      <p id="section-5.2.3-4.3.2.3.2.3.1">The client terminates the connection without retry<a href="#section-5.2.3-4.3.2.3.2.3.1" class="pilcrow">¶</a></p>
+</li>
+                  </ul>
+</li>
+              </ul>
+</li>
+          </ol>
+<p id="section-5.2.3-5">Note: Regardless of validation outcome in an ECH rejection, the client will terminate the current connection. The difference is whether it retries with the new configs (validation success) or treats it as a certificate validation failure (validation failure). Implementers should refer to the state diagram in Appendix A for the complete retry logic flow.<a href="#section-5.2.3-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="backward-compatibility">
+<section id="section-5.2.4">
+          <h4 id="name-backward-compatibility">
+<a href="#section-5.2.4" class="section-number selfRef">5.2.4. </a><a href="#name-backward-compatibility" class="section-name selfRef">Backward Compatibility</a>
+          </h4>
+<p id="section-5.2.4-1">Clients that do not implement this specification continue to process <code>retry_configs</code> as defined in <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, ignoring the authentication extensions. Servers that do not implement this specification send unauthenticated <code>retry_configs</code> as usual.<a href="#section-5.2.4-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="example-exchange">
+<section id="section-6">
+      <h2 id="name-example-exchange">
+<a href="#section-6" class="section-number selfRef">6. </a><a href="#name-example-exchange" class="section-name selfRef">Example Exchange</a>
+      </h2>
+<div id="initial-setup">
+<section id="section-6.1">
+        <h3 id="name-initial-setup">
+<a href="#section-6.1" class="section-number selfRef">6.1. </a><a href="#name-initial-setup" class="section-name selfRef">Initial Setup</a>
+        </h3>
+<p id="section-6.1-1">Consider <code>api.example.com</code> as a service protected by ECH with public name <code>ech.example.net</code>. The operator publishes an ECHConfig via DNS HTTPS RR with the <code>ech_auth</code> extension containing:<a href="#section-6.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.1-2.1">
+            <p id="section-6.1-2.1.1">Method: RPK (value 1)<a href="#section-6.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-6.1-2.2">
+            <p id="section-6.1-2.2.1">Trusted keys: SHA-256 hash of an Ed25519 signing key's SPKI<a href="#section-6.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-6.1-2.3">
+            <p id="section-6.1-2.3.1">Optional: A signed authenticator for immediate validation<a href="#section-6.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="successful-ech-with-update">
+<section id="section-6.2">
+        <h3 id="name-successful-ech-with-update">
+<a href="#section-6.2" class="section-number selfRef">6.2. </a><a href="#name-successful-ech-with-update" class="section-name selfRef">Successful ECH with Update</a>
+        </h3>
+<ol start="1" type="1" class="normal type-1" id="section-6.2-1">
+<li id="section-6.2-1.1">
+            <p id="section-6.2-1.1.1">Client connects: Sends ClientHello with ECH using cached config<a href="#section-6.2-1.1.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.2-1.1.2.1">
+                <p id="section-6.2-1.1.2.1.1">Outer SNI: <code>ech.example.net</code><a href="#section-6.2-1.1.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.1.2.2">
+                <p id="section-6.2-1.1.2.2.1">Inner SNI: <code>api.example.com</code><a href="#section-6.2-1.1.2.2.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-6.2-1.2">
+            <p id="section-6.2-1.2.1">Server accepts ECH: Decrypts inner ClientHello successfully<a href="#section-6.2-1.2.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.2-1.2.2.1">
+                <p id="section-6.2-1.2.2.1.1">Prepares updated ECHConfig with new keys<a href="#section-6.2-1.2.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.2.2.2">
+                <p id="section-6.2-1.2.2.2.1">Selects PKIX method for signing<a href="#section-6.2-1.2.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.2.2.3">
+                <p id="section-6.2-1.2.2.3.1">Signs the update with certificate containing the critical <code>id-pe-echConfigSigning</code> extension<a href="#section-6.2-1.2.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-6.2-1.3">
+            <p id="section-6.2-1.3.1">Server response:<a href="#section-6.2-1.3.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.2-1.3.2.1">
+                <p id="section-6.2-1.3.2.1.1">ServerHello (ECH accepted)<a href="#section-6.2-1.3.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.3.2.2">
+                <p id="section-6.2-1.3.2.2.1">EncryptedExtensions containing authenticated ECHConfig<a href="#section-6.2-1.3.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.3.2.3">
+                <p id="section-6.2-1.3.2.3.1">Certificate for <code>api.example.com</code> (inner origin)<a href="#section-6.2-1.3.2.3.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.3.2.4">
+                <p id="section-6.2-1.3.2.4.1">CertificateVerify, Finished<a href="#section-6.2-1.3.2.4.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-6.2-1.4">
+            <p id="section-6.2-1.4.1">Client validation:<a href="#section-6.2-1.4.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.2-1.4.2.1">
+                <p id="section-6.2-1.4.2.1.1">Verifies ECH acceptance<a href="#section-6.2-1.4.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.4.2.2">
+                <p id="section-6.2-1.4.2.2.1">Validates PKIX certificate chain and critical extension<a href="#section-6.2-1.4.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.4.2.3">
+                <p id="section-6.2-1.4.2.3.1">Verifies signature over ECHConfig<a href="#section-6.2-1.4.2.3.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.2-1.4.2.4">
+                <p id="section-6.2-1.4.2.4.1">Caches new config for future connections<a href="#section-6.2-1.4.2.4.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+        </ol>
+</section>
+</div>
+<div id="ech-rejection-with-recovery">
+<section id="section-6.3">
+        <h3 id="name-ech-rejection-with-recovery">
+<a href="#section-6.3" class="section-number selfRef">6.3. </a><a href="#name-ech-rejection-with-recovery" class="section-name selfRef">ECH Rejection with Recovery</a>
+        </h3>
+<ol start="1" type="1" class="normal type-1" id="section-6.3-1">
+<li id="section-6.3-1.1">
+            <p id="section-6.3-1.1.1">Client connects: Uses outdated ECHConfig<a href="#section-6.3-1.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-6.3-1.2">
+            <p id="section-6.3-1.2.1">Server rejects ECH: Cannot decrypt inner ClientHello<a href="#section-6.3-1.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-6.3-1.3">
+            <p id="section-6.3-1.3.1">Server continues outer handshake:<a href="#section-6.3-1.3.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.3-1.3.2.1">
+                <p id="section-6.3-1.3.2.1.1">Sends authenticated ECHConfig in EncryptedExtensions<a href="#section-6.3-1.3.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.3-1.3.2.2">
+                <p id="section-6.3-1.3.2.2.1">Uses certificate for <code>ech.example.net</code><a href="#section-6.3-1.3.2.2.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+          <li id="section-6.3-1.4">
+            <p id="section-6.3-1.4.1">Client recovery:<a href="#section-6.3-1.4.1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-6.3-1.4.2.1">
+                <p id="section-6.3-1.4.2.1.1">Validates and caches new ECHConfig<a href="#section-6.3-1.4.2.1.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.3-1.4.2.2">
+                <p id="section-6.3-1.4.2.2.1">Closes connection (not authenticated for inner origin)<a href="#section-6.3-1.4.2.2.1" class="pilcrow">¶</a></p>
+</li>
+              <li class="normal" id="section-6.3-1.4.2.3">
+                <p id="section-6.3-1.4.2.3.1">Immediately retries with new ECHConfig<a href="#section-6.3-1.4.2.3.1" class="pilcrow">¶</a></p>
+</li>
+            </ul>
+</li>
+        </ol>
+</section>
+</div>
+</section>
+</div>
+<div id="security">
+<section id="section-7">
+      <h2 id="name-security-considerations">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-security-considerations" class="section-name selfRef">Security Considerations</a>
+      </h2>
+<p id="section-7-1">This section analyzes security properties by threat model.<a href="#section-7-1" class="pilcrow">¶</a></p>
+<div id="passive-attackers">
+<section id="section-7.1">
+        <h3 id="name-passive-attackers">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-passive-attackers" class="section-name selfRef">Passive Attackers</a>
+        </h3>
+<p id="section-7.1-1">This mechanism preserves ECH's protection against passive observation. ECHConfig updates are delivered within encrypted TLS messages (HelloRetryRequest or EncryptedExtensions), preventing passive observers from learning about configuration changes. The mechanism ensures that even during retry scenarios, the client's intended server name is never exposed in cleartext.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="active-network-attackers">
+<section id="section-7.2">
+        <h3 id="name-active-network-attackers">
+<a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-active-network-attackers" class="section-name selfRef">Active Network Attackers</a>
+        </h3>
+<div id="initial-trust-bootstrap">
+<section id="section-7.2.1">
+          <h4 id="name-initial-trust-bootstrap">
+<a href="#section-7.2.1" class="section-number selfRef">7.2.1. </a><a href="#name-initial-trust-bootstrap" class="section-name selfRef">Initial Trust Bootstrap</a>
+          </h4>
+<p id="section-7.2.1-1">The security of this mechanism fundamentally depends on the authenticity of the initial ECHConfig. If an attacker can inject a malicious initial configuration, they may be able to pin their own keys in the <code>trusted_keys</code> field, enabling persistent interception.<a href="#section-7.2.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.2.1-2">When ECHConfigs are obtained via DNS, an on-path attacker could provide a fake ECHConfig with the attacker's key in <code>trusted_keys</code>. While the attacker cannot decrypt ECH-protected connections, they could cause ECH to fail and then present their own certificate during fallback, potentially tricking the client into accepting and caching a compromised configuration. Clients SHOULD prefer authenticated bootstrap mechanisms when available.<a href="#section-7.2.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.2.1-3">Initial retrieval of ECHConfigList via DNS is unchanged by this mechanism. This specification authenticates updates in-band via RPK or PKIX; it does not attempt to authenticate the initial DNS fetch. ECHConfigs obtained via HTTPS from a well-known URI benefit from Web PKI authentication. Pre-configured ECHConfigs in applications derive their trust from the application's distribution channel.<a href="#section-7.2.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="handshake-integrity">
+<section id="section-7.2.2">
+          <h4 id="name-handshake-integrity">
+<a href="#section-7.2.2" class="section-number selfRef">7.2.2. </a><a href="#name-handshake-integrity" class="section-name selfRef">Handshake Integrity</a>
+          </h4>
+<p id="section-7.2.2-1">Signed ECHConfigs delivered via HelloRetryRequest or EncryptedExtensions are protected by TLS 1.3's handshake encryption and integrity mechanisms. The Finished message ensures that any modification by an attacker would be detected.<a href="#section-7.2.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.2.2-2">A man-in-the-middle attacker without the server's handshake keys cannot modify the EncryptedExtensions message containing the ECHConfig update. The TLS 1.3 handshake itself provides replay protection through its use of fresh random values and the Finished message authentication.<a href="#section-7.2.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="compromised-keys">
+<section id="section-7.3">
+        <h3 id="name-compromised-keys">
+<a href="#section-7.3" class="section-number selfRef">7.3. </a><a href="#name-compromised-keys" class="section-name selfRef">Compromised Keys</a>
+        </h3>
+<div id="signature-verification">
+<section id="section-7.3.1">
+          <h4 id="name-signature-verification">
+<a href="#section-7.3.1" class="section-number selfRef">7.3.1. </a><a href="#name-signature-verification" class="section-name selfRef">Signature Verification</a>
+          </h4>
+<p id="section-7.3.1-1">Clients MUST correctly implement signature verification for each authentication method. For RPK, servers and clients SHOULD use cryptographically strong signature schemes from the TLS 1.3 SignatureScheme registry, such as Ed25519, ECDSA, or RSA-PSS. Weak schemes like RSA PKCS#1 v1.5 SHOULD NOT be used.<a href="#section-7.3.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.3.1-2">The inclusion of <code>not_after</code> timestamps (for RPK) or certificate validity periods (for PKIX) ensures configuration freshness. These temporal bounds prevent clients from accepting stale configurations that might use compromised keys or outdated parameters. Clients MUST verify these temporal constraints and reject expired configurations. Note that these mechanisms depend on reasonably synchronized clocks (within 5 minutes of actual time is RECOMMENDED).<a href="#section-7.3.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.3.1-3">Note that signed ECHConfigs themselves are replayable - an attacker could capture and resend a valid signed configuration. However, this is not a security concern as the configuration is public data intended for distribution. The freshness guarantees ensure that old configurations eventually expire, limiting the window during which outdated keys remain acceptable.<a href="#section-7.3.1-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="key-management">
+<section id="section-7.3.2">
+          <h4 id="name-key-management">
+<a href="#section-7.3.2" class="section-number selfRef">7.3.2. </a><a href="#name-key-management" class="section-name selfRef">Key Management</a>
+          </h4>
+<p id="section-7.3.2-1">Servers MUST protect their ECH update signing keys. If an RPK signing key is compromised, the server SHOULD remove its hash from <code>trusted_keys</code> in subsequent updates, signing the transition with a different trusted key. Servers SHOULD consider including multiple keys in <code>trusted_keys</code> to facilitate key rotation and recovery from compromise.<a href="#section-7.3.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.3.2-2">For PKIX-based updates, normal certificate lifecycle management applies. Servers SHOULD obtain new certificates before existing ones expire.<a href="#section-7.3.2-2" class="pilcrow">¶</a></p>
+<p id="section-7.3.2-3">For PKIX authentication, this specification leverages existing CA infrastructure including revocation mechanisms. A compromised ECH signing certificate could be used to sign malicious updates, but this risk is mitigated by the certificate's constraints (critical extension and name binding) and standard revocation mechanisms (OCSP/CRL). Clients SHOULD apply the same revocation checks to ECH signing certificates as they do for TLS server certificates.<a href="#section-7.3.2-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="implementation-vulnerabilities">
+<section id="section-7.4">
+        <h3 id="name-implementation-vulnerabilit">
+<a href="#section-7.4" class="section-number selfRef">7.4. </a><a href="#name-implementation-vulnerabilit" class="section-name selfRef">Implementation Vulnerabilities</a>
+        </h3>
+<div id="failure-handling">
+<section id="section-7.4.1">
+          <h4 id="name-failure-handling">
+<a href="#section-7.4.1" class="section-number selfRef">7.4.1. </a><a href="#name-failure-handling" class="section-name selfRef">Failure Handling</a>
+          </h4>
+<p id="section-7.4.1-1">When ECHConfig update verification fails, clients MUST NOT compromise the security or privacy guarantees of ECH. If ECH was accepted but the update verification failed, the connection proceeds normally without caching the new configuration. This represents a safe failure mode where connectivity is maintained but key rotation is delayed.<a href="#section-7.4.1-1" class="pilcrow">¶</a></p>
+<p id="section-7.4.1-2">If ECH was rejected and the update verification also fails, the client lacks a valid configuration for retry. In this case, the client SHOULD NOT proceed with the connection using the outer SNI for application data, as this would violate ECH's privacy goals. The client MAY attempt to obtain a valid configuration through other means (such as DNS) or treat the connection as failed.<a href="#section-7.4.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.4.1-3">Servers MAY include multiple ECHConfigs with different authentication methods to maximize the probability of successful verification. Clients SHOULD process these in order and use the first configuration that successfully verifies.<a href="#section-7.4.1-3" class="pilcrow">¶</a></p>
+<p id="section-7.4.1-4">In distributed deployments, only servers with access to the appropriate signing keys can generate valid ECHConfig updates. This prevents unauthorized intermediaries (such as CDN nodes) from injecting malicious configurations. If a server sends an update that cannot be verified, the client simply ignores it and continues with its existing configuration. While this could potentially lead to the use of outdated configurations, it prevents compromise of the ECH mechanism itself.<a href="#section-7.4.1-4" class="pilcrow">¶</a></p>
+<p id="section-7.4.1-5">Algorithm agility is provided through the TLS SignatureScheme registry for RPK and standard PKIX certificate algorithms. Implementations SHOULD support commonly deployed algorithms and MUST be able to handle algorithm transitions.<a href="#section-7.4.1-5" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="denial-of-service-considerations">
+<section id="section-7.4.2">
+          <h4 id="name-denial-of-service-considera">
+<a href="#section-7.4.2" class="section-number selfRef">7.4.2. </a><a href="#name-denial-of-service-considera" class="section-name selfRef">Denial of Service Considerations</a>
+          </h4>
+<p id="section-7.4.2-1">Signature verification introduces computational costs. However, these operations occur only during ECH configuration updates, not on every connection. The additional data in EncryptedExtensions (certificates) may increase message sizes, potentially causing fragmentation in some scenarios. Implementations SHOULD be aware of message size limits, particularly in QUIC deployments.<a href="#section-7.4.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.4.2-2">Attackers cannot force servers to send signed ECHConfigs without establishing TLS connections. Standard TLS denial-of-service mitigations (rate limiting, stateless cookies) apply equally to this mechanism.<a href="#section-7.4.2-2" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+</section>
+</div>
+<div id="privacy-considerations">
+<section id="section-8">
+      <h2 id="name-privacy-considerations">
+<a href="#section-8" class="section-number selfRef">8. </a><a href="#name-privacy-considerations" class="section-name selfRef">Privacy Considerations</a>
+      </h2>
+<p id="section-8-1">This mechanism preserves and potentially enhances ECH's privacy properties. By enabling the use of diverse public names through RPK authentication, servers can increase the anonymity set beyond what is possible with certificate-based authentication alone.<a href="#section-8-1" class="pilcrow">¶</a></p>
+<p id="section-8-2">The ECHConfig updates themselves are delivered within encrypted TLS messages (HelloRetryRequest or EncryptedExtensions), preventing passive observers from learning about configuration changes. The mechanism ensures that even during retry scenarios, the client's intended server name is never exposed in cleartext.<a href="#section-8-2" class="pilcrow">¶</a></p>
+<p id="section-8-3">A potential privacy consideration is that failed ECH attempts followed by successful retries create a distinctive connection pattern. However, this pattern only reveals that ECH was used with a particular public name, not the intended destination behind that name.<a href="#section-8-3" class="pilcrow">¶</a></p>
+<p id="section-8-4">This specification introduces no new tracking mechanisms or identifiers beyond those already present in TLS and DNS.<a href="#section-8-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="iana">
+<section id="section-9">
+      <h2 id="name-iana-considerations">
+<a href="#section-9" class="section-number selfRef">9. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
+      </h2>
+<div id="echconfig-extension">
+<section id="section-9.1">
+        <h3 id="name-echconfig-extension">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-echconfig-extension" class="section-name selfRef">ECHConfig Extension</a>
+        </h3>
+<p id="section-9.1-1">IANA is requested to add the following entry to the "ECH Configuration Extension Type Values" registry:<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-9.1-2.1">
+            <p id="section-9.1-2.1.1">Extension Name: <code>ech_auth</code><a href="#section-9.1-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.1-2.2">
+            <p id="section-9.1-2.2.1">Value: TBD1<a href="#section-9.1-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.1-2.3">
+            <p id="section-9.1-2.3.1">Purpose: Conveys supported authentication methods, trusted keys, and optional signed authenticators<a href="#section-9.1-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.1-2.4">
+            <p id="section-9.1-2.4.1">Reference: This document<a href="#section-9.1-2.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="x509-certificate-extension-oid">
+<section id="section-9.2">
+        <h3 id="name-x509-certificate-extension-">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-x509-certificate-extension-" class="section-name selfRef">X.509 Certificate Extension OID</a>
+        </h3>
+<p id="section-9.2-1">IANA is requested to allocate an object identifier (OID) under the "SMI Security for PKIX Certificate Extensions (1.3.6.1.5.5.7.1)" registry with the following values:<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-9.2-2.1">
+            <p id="section-9.2-2.1.1">OID: id-pe-echConfigSigning (1.3.6.1.5.5.7.1.TBD2)<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.2">
+            <p id="section-9.2-2.2.1">Name: ECH Configuration Signing<a href="#section-9.2-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.3">
+            <p id="section-9.2-2.3.1">Description: Indicates that the certificate's subject public key is authorized to sign ECH configuration updates for the DNS names in the certificate's Subject Alternative Name (SAN).<a href="#section-9.2-2.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.4">
+            <p id="section-9.2-2.4.1">Criticality: Certificates containing this extension MUST mark it critical.<a href="#section-9.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.5">
+            <p id="section-9.2-2.5.1">Reference: This document.<a href="#section-9.2-2.5.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="ech-authentication-methods-registry">
+<section id="section-9.3">
+        <h3 id="name-ech-authentication-methods-">
+<a href="#section-9.3" class="section-number selfRef">9.3. </a><a href="#name-ech-authentication-methods-" class="section-name selfRef">ECH Authentication Methods Registry</a>
+        </h3>
+<p id="section-9.3-1">IANA is requested to establish a new registry called "ECH Authentication Methods" with the following initial values:<a href="#section-9.3-1" class="pilcrow">¶</a></p>
+<table class="center" id="table-1">
+          <caption><a href="#table-1" class="selfRef">Table 1</a></caption>
+<thead>
+            <tr>
+              <th class="text-left" rowspan="1" colspan="1">Value</th>
+              <th class="text-left" rowspan="1" colspan="1">Method</th>
+              <th class="text-left" rowspan="1" colspan="1">Description</th>
+              <th class="text-left" rowspan="1" colspan="1">Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">0</td>
+              <td class="text-left" rowspan="1" colspan="1">Reserved</td>
+              <td class="text-left" rowspan="1" colspan="1">Not used</td>
+              <td class="text-left" rowspan="1" colspan="1">This document</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">1</td>
+              <td class="text-left" rowspan="1" colspan="1">RPK</td>
+              <td class="text-left" rowspan="1" colspan="1">Raw Public Key</td>
+              <td class="text-left" rowspan="1" colspan="1">This document</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">2</td>
+              <td class="text-left" rowspan="1" colspan="1">PKIX</td>
+              <td class="text-left" rowspan="1" colspan="1">X.509 with critical id-pe-echConfigSigning</td>
+              <td class="text-left" rowspan="1" colspan="1">This document</td>
+            </tr>
+            <tr>
+              <td class="text-left" rowspan="1" colspan="1">3-255</td>
+              <td class="text-left" rowspan="1" colspan="1">Unassigned</td>
+              <td class="text-left" rowspan="1" colspan="1">-</td>
+              <td class="text-left" rowspan="1" colspan="1">-</td>
+            </tr>
+          </tbody>
+        </table>
+<p id="section-9.3-3">New values are assigned via IETF Review.<a href="#section-9.3-3" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="deployment-considerations">
+<section id="section-10">
+      <h2 id="name-deployment-considerations">
+<a href="#section-10" class="section-number selfRef">10. </a><a href="#name-deployment-considerations" class="section-name selfRef">Deployment Considerations</a>
+      </h2>
+<div id="method-selection">
+<section id="section-10.1">
+        <h3 id="name-method-selection">
+<a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-method-selection" class="section-name selfRef">Method Selection</a>
+        </h3>
+<p id="section-10.1-1">Operators SHOULD support at least one widely implemented method. PKIX (critical extension) provides easier operational deployment with standard certificate issuance workflows and no client pin state. RPK offers small artifacts and simple verification; any client-side state is bounded to the lifetime of the current ECHConfig and a single authenticated retry per connection attempt.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="size-considerations">
+<section id="section-10.2">
+        <h3 id="name-size-considerations">
+<a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-size-considerations" class="section-name selfRef">Size Considerations</a>
+        </h3>
+<p id="section-10.2-1">When sending authenticated ECHConfigs in HelloRetryRequest, servers should be mindful of message size to avoid fragmentation or exceeding anti-amplification limits. RPK signatures are typically more compact than PKIX certificate chains.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="key-rotation">
+<section id="section-10.3">
+        <h3 id="name-key-rotation">
+<a href="#section-10.3" class="section-number selfRef">10.3. </a><a href="#name-key-rotation" class="section-name selfRef">Key Rotation</a>
+        </h3>
+<p id="section-10.3-1">Publish updates well in advance of key retirement. Include appropriate validity periods for each method. Consider overlapping validity windows to allow graceful client migration.<a href="#section-10.3-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="pin-management">
+<section id="section-10.4">
+        <h3 id="name-pin-management">
+<a href="#section-10.4" class="section-number selfRef">10.4. </a><a href="#name-pin-management" class="section-name selfRef">Pin Management</a>
+        </h3>
+<p id="section-10.4-1">For RPK deployments:<a href="#section-10.4-1" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-10.4-2.1">
+            <p id="section-10.4-2.1.1">Maintain multiple valid pins to enable recovery from key compromise<a href="#section-10.4-2.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-10.4-2.2">
+            <p id="section-10.4-2.2.1">Remove compromised pins via authenticated updates signed by remaining trusted keys<a href="#section-10.4-2.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-10.4-2.3">
+            <p id="section-10.4-2.3.1">Consider using PKIX to re-establish trust if all pinned keys are compromised<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+</section>
+</div>
+<div id="update-consistency">
+<section id="section-10.5">
+        <h3 id="name-update-consistency">
+<a href="#section-10.5" class="section-number selfRef">10.5. </a><a href="#name-update-consistency" class="section-name selfRef">Update Consistency</a>
+        </h3>
+<p id="section-10.5-1">If sending updates in both HRR and EncryptedExtensions, ensure consistency to avoid client confusion. When possible, send updates in only one location per handshake.<a href="#section-10.5-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="section-11">
+      <h2 id="name-acknowledgments">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="section-11-1">The authors thank Martin Thomson for earlier contributions and discussions on the initial draft.<a href="#section-11-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sec-normative-references">
+<section id="section-12">
+      <h2 id="name-normative-references">
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+      </h2>
+<dl class="references">
+<dt id="RFC2119">[RFC2119]</dt>
+      <dd>
+<span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8174">[RFC8174]</dt>
+      <dd>
+<span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8174">https://www.rfc-editor.org/info/rfc8174</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC8446">[RFC8446]</dt>
+      <dd>
+<span class="refAuthor">Rescorla, E.</span>, <span class="refTitle">"The Transport Layer Security (TLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 8446</span>, <span class="seriesInfo">DOI 10.17487/RFC8446</span>, <time datetime="2018-08" class="refDate">August 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8446">https://www.rfc-editor.org/info/rfc8446</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9180">[RFC9180]</dt>
+      <dd>
+<span class="refAuthor">Barnes, R.</span>, <span class="refAuthor">Bhargavan, K.</span>, <span class="refAuthor">Lipp, B.</span>, and <span class="refAuthor">C. Wood</span>, <span class="refTitle">"Hybrid Public Key Encryption"</span>, <span class="seriesInfo">RFC 9180</span>, <span class="seriesInfo">DOI 10.17487/RFC9180</span>, <time datetime="2022-02" class="refDate">February 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9180">https://www.rfc-editor.org/info/rfc9180</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC9460">[RFC9460]</dt>
+      <dd>
+<span class="refAuthor">Schwartz, B.</span>, <span class="refAuthor">Bishop, M.</span>, and <span class="refAuthor">E. Nygren</span>, <span class="refTitle">"Service Binding and Parameter Specification via the DNS (SVCB and HTTPS Resource Records)"</span>, <span class="seriesInfo">RFC 9460</span>, <span class="seriesInfo">DOI 10.17487/RFC9460</span>, <time datetime="2023-11" class="refDate">November 2023</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9460">https://www.rfc-editor.org/info/rfc9460</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="I-D.ietf-tls-esni">[I-D.ietf-tls-esni]</dt>
+      <dd>
+<span class="refAuthor">Rescorla, E.</span>, <span class="refAuthor">Oku, K.</span>, <span class="refAuthor">Sullivan, N.</span>, and <span class="refAuthor">C. A. Wood</span>, <span class="refTitle">"TLS Encrypted Client Hello"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-esni-25</span>, <time datetime="2025-06-14" class="refDate">14 June 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-25">https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-25</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="I-D.ietf-tls-svcb-ech">[I-D.ietf-tls-svcb-ech]</dt>
+      <dd>
+<span class="refAuthor">Schwartz, B. M.</span>, <span class="refAuthor">Bishop, M.</span>, and <span class="refAuthor">E. Nygren</span>, <span class="refTitle">"Bootstrapping TLS Encrypted ClientHello with DNS Service Bindings"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-svcb-ech-08</span>, <time datetime="2025-06-16" class="refDate">16 June 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-svcb-ech-08">https://datatracker.ietf.org/doc/html/draft-ietf-tls-svcb-ech-08</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="I-D.ietf-tls-wkech">[I-D.ietf-tls-wkech]</dt>
+    <dd>
+<span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Salz, R.</span>, and <span class="refAuthor">B. M. Schwartz</span>, <span class="refTitle">"A well-known URI for publishing service parameters"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-wkech-10</span>, <time datetime="2025-10-19" class="refDate">19 October 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-10">https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-10</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-A">
+      <h2 id="name-authors-addresses">
+<a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
+      </h2>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Nick Sullivan</span></div>
+<div dir="auto" class="left"><span class="org">Cryptography Consulting LLC</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:nicholas.sullivan+ietf@gmail.com" class="email">nicholas.sullivan+ietf@gmail.com</a>
+</div>
+</address>
+<address class="vcard">
+        <div dir="auto" class="left"><span class="fn nameRole">Dennis Jackson</span></div>
+<div dir="auto" class="left"><span class="org">Mozilla</span></div>
+<div class="email">
+<span>Email:</span>
+<a href="mailto:ietf@dennis-jackson.uk" class="email">ietf@dennis-jackson.uk</a>
+</div>
+</address>
+</section>
+</div>
+<script>const toc = document.getElementById("toc");
+toc.querySelector("h2").addEventListener("click", e => {
+  toc.classList.toggle("active");
+});
+toc.querySelector("nav").addEventListener("click", e => {
+  toc.classList.remove("active");
+});
+</script>
+</body>
+</html>
