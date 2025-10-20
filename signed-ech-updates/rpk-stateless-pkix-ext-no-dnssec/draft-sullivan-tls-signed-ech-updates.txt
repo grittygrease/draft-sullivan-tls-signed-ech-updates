@@ -1041,7 +1041,9 @@ Authors' Addresses
 
    Nick Sullivan
    Cryptography Consulting LLC
+   Email: nicholas.sullivan+ietf@gmail.com
 
 
    Dennis Jackson
    Mozilla
+   Email: ietf@dennis-jackson.uk
