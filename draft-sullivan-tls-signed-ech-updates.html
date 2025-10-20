@@ -6,35 +6,32 @@
 <meta content="initial-scale=1.0" name="viewport">
 <title>Authenticated ECH Config Distribution and Rotation</title>
 <meta content="Nick Sullivan" name="author">
-<meta content="Martin Thomson" name="author">
 <meta content="Dennis Jackson" name="author">
 <meta content="
        Encrypted ClientHello (ECH) requires clients to have the server's ECH configuration before connecting. Currently, when ECH fails, servers can send updated configurations but clients cannot authenticate them without a certificate for the public name, limiting deployment flexibility. 
        This document specifies an authenticated ECH configuration update mechanism. Servers can deliver signed ECH configurations during the TLS handshake, allowing clients to authenticate and immediately use them for retry. The mechanism decouples ECH key distribution from transport, enabling the same signed configuration to work via DNS or TLS delivery. 
     " name="description">
-<meta content="xml2rfc 3.30.2" name="generator">
+<meta content="xml2rfc 3.31.0" name="generator">
 <meta content="TLS 1.3" name="keyword">
 <meta content="Encrypted ClientHello" name="keyword">
 <meta content="ECH" name="keyword">
 <meta content="Key Rotation" name="keyword">
-<meta content="DNSSEC" name="keyword">
 <meta content="PKIX" name="keyword">
 <meta content="RPK" name="keyword">
 <meta content="draft-sullivan-tls-signed-ech-updates-latest" name="ietf.draft">
 <!-- Generator version information:
-  xml2rfc 3.30.2
-    Python 3.12.11
+  xml2rfc 3.31.0
+    Python 3.12.12
     ConfigArgParse 1.7
     google-i18n-address 3.1.1
     intervaltree 3.1.0
     Jinja2 3.1.6
     lxml 5.3.1
-    platformdirs 4.4.0
+    platformdirs 4.5.0
     pycountry 24.6.1
     PyYAML 6.0.2
     requests 2.32.5
-    setuptools 80.9.0
-    wcwidth 0.2.13
+    wcwidth 0.2.14
 -->
 <link href="draft-sullivan-tls-signed-ech-updates.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
@@ -1053,11 +1050,11 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <thead><tr>
 <td class="left">Internet-Draft</td>
 <td class="center">Authenticated ECH Update</td>
-<td class="right">September 2025</td>
+<td class="right">October 2025</td>
 </tr></thead>
 <tfoot><tr>
-<td class="left">Sullivan, et al.</td>
-<td class="center">Expires 29 March 2026</td>
+<td class="left">Sullivan &amp; Jackson</td>
+<td class="center">Expires 23 April 2026</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1070,21 +1067,17 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <dd class="internet-draft">draft-sullivan-tls-signed-ech-updates-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2025-09-25" class="published">25 September 2025</time>
+<time datetime="2025-10-20" class="published">20 October 2025</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-03-29">29 March 2026</time></dd>
+<dd class="expires"><time datetime="2026-04-23">23 April 2026</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
       <div class="author-name">N. Sullivan</div>
 <div class="org">Cryptography Consulting LLC</div>
-</div>
-<div class="author">
-      <div class="author-name">M. Thomson</div>
-<div class="org">Mozilla</div>
 </div>
 <div class="author">
       <div class="author-name">D. Jackson</div>
@@ -1128,7 +1121,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 29 March 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 23 April 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1177,9 +1170,6 @@ svg :is([fill="white"], [fill^="#fff"]) {
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.2">
                 <p id="section-toc.1-1.3.2.2.1"><a href="#section-3.2" class="auto internal xref">3.2</a>.  <a href="#name-pkix-certificate-based" class="internal xref">PKIX (Certificate-Based)</a></p>
 </li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.3.2.3">
-                <p id="section-toc.1-1.3.2.3.1"><a href="#section-3.3" class="auto internal xref">3.3</a>.  <a href="#name-dnssec" class="internal xref">DNSSEC</a></p>
-</li>
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.4">
@@ -1224,9 +1214,6 @@ svg :is([fill="white"], [fill^="#fff"]) {
 </li>
                   <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2.2.4">
                     <p id="section-toc.1-1.5.2.2.2.4.1"><a href="#section-5.2.4" class="auto internal xref">5.2.4</a>.  <a href="#name-backward-compatibility" class="internal xref">Backward Compatibility</a></p>
-</li>
-                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.5.2.2.2.5">
-                    <p id="section-toc.1-1.5.2.2.2.5.1"><a href="#section-5.2.5" class="auto internal xref">5.2.5</a>.  <a href="#name-public-name-authentication-" class="internal xref">Public Name Authentication for Pinned Keys</a></p>
 </li>
                 </ul>
 </li>
@@ -1297,7 +1284,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
                 <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-echconfig-extension" class="internal xref">ECHConfig Extension</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.2">
-                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-extended-key-usage-oid" class="internal xref">Extended Key Usage OID</a></p>
+                <p id="section-toc.1-1.9.2.2.1"><a href="#section-9.2" class="auto internal xref">9.2</a>.  <a href="#name-x509-certificate-extension-" class="internal xref">X.509 Certificate Extension OID</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.3">
                 <p id="section-toc.1-1.9.2.3.1"><a href="#section-9.3" class="auto internal xref">9.3</a>.  <a href="#name-ech-authentication-methods-" class="internal xref">ECH Authentication Methods Registry</a></p>
@@ -1325,10 +1312,13 @@ svg :is([fill="white"], [fill^="#fff"]) {
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
-            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
-            <p id="section-toc.1-1.12.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
 </li>
         </ul>
 </nav>
@@ -1343,16 +1333,13 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <p id="section-1-2">While ECH includes a retry mechanism where servers can send updated ECHConfigList values during the handshake (via HelloRetryRequest or EncryptedExtensions), the base ECH specification instructs clients not to cache these configurations <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>. Instead, servers must authenticate the outer handshake using a certificate for the public name, and clients must obtain updated configurations through out-of-band mechanisms for future connections.<a href="#section-1-2" class="pilcrow">¶</a></p>
 <p id="section-1-3">This approach limits ECH deployment in two key ways. First, it restricts the usable public names to those for which operators can obtain certificates, reducing the potential anonymity set. Second, it creates delays in key rotation recovery, as clients cannot immediately use updated configurations received during the handshake.<a href="#section-1-3" class="pilcrow">¶</a></p>
 <p id="section-1-4">This document introduces an Authenticated ECH Config Update mechanism to securely deliver and rotate ECHConfig data in-band, during a TLS handshake. The goal is to allow servers to frequently update ECH keys (for example, to limit the lifetime of keys or respond to compromise). This mechanism does not prescribe or rely on fallback to cleartext; when ECH fails with this mechanism, the connection is terminated and retried with updated configurations rather than exposing the protected name.<a href="#section-1-4" class="pilcrow">¶</a></p>
-<p id="section-1-5">The mechanism supports three authentication methods through the <code>ech_auth</code> ECHConfig extension:<a href="#section-1-5" class="pilcrow">¶</a></p>
+<p id="section-1-5">The mechanism supports two authentication methods through the <code>ech_auth</code> ECHConfig extension:<a href="#section-1-5" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-1-6">
 <li id="section-1-6.1">
-          <p id="section-1-6.1.1">Raw Public Key (RPK) - SPKI pinning established from initial authenticated configuration<a href="#section-1-6.1.1" class="pilcrow">¶</a></p>
+          <p id="section-1-6.1.1">Raw Public Key (RPK) - SPKI hashing for configuration-specific trust<a href="#section-1-6.1.1" class="pilcrow">¶</a></p>
 </li>
         <li id="section-1-6.2">
-          <p id="section-1-6.2.1">PKIX - Certificate-based signing with a dedicated Extended Key Usage<a href="#section-1-6.2.1" class="pilcrow">¶</a></p>
-</li>
-        <li id="section-1-6.3">
-          <p id="section-1-6.3.1">DNSSEC - Authentication via DNS Security Extensions<a href="#section-1-6.3.1" class="pilcrow">¶</a></p>
+          <p id="section-1-6.2.1">PKIX - Certificate-based signing with a critical X.509 extension<a href="#section-1-6.2.1" class="pilcrow">¶</a></p>
 </li>
       </ol>
 <p id="section-1-7">Each ECHConfig carries at most one signature using the specified method. By authenticating ECH configs independently, the mechanism makes ECH key distribution orthogonal to transport. The same signed ECHConfig artifact can be conveyed via DNS, HTTPS, or the TLS handshake itself. The client will accept it only if the accompanying signature or proof is valid under one of its trust modes.<a href="#section-1-7" class="pilcrow">¶</a></p>
@@ -1377,28 +1364,19 @@ svg :is([fill="white"], [fill^="#fff"]) {
           <p id="section-2-4.3.1">SPKI: SubjectPublicKeyInfo - The ASN.1 structure containing a public key and its algorithm identifier<a href="#section-2-4.3.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-2-4.4">
-          <p id="section-2-4.4.1">EKU: Extended Key Usage - An X.509 certificate extension that defines allowed uses<a href="#section-2-4.4.1" class="pilcrow">¶</a></p>
+          <p id="section-2-4.4.1">HPKE: Hybrid Public Key Encryption - The encryption scheme used by ECH as defined in <span>[<a href="#RFC9180" class="cite xref">RFC9180</a>]</span><a href="#section-2-4.4.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-2-4.5">
-          <p id="section-2-4.5.1">ZSK: Zone Signing Key - A DNSSEC key used to sign DNS records within a zone<a href="#section-2-4.5.1" class="pilcrow">¶</a></p>
+          <p id="section-2-4.5.1">DER: Distinguished Encoding Rules - A binary encoding format for ASN.1 structures<a href="#section-2-4.5.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-2-4.6">
-          <p id="section-2-4.6.1">KSK: Key Signing Key - A DNSSEC key used to sign other DNSSEC keys<a href="#section-2-4.6.1" class="pilcrow">¶</a></p>
+          <p id="section-2-4.6.1">OCSP: Online Certificate Status Protocol - A method for checking certificate revocation status<a href="#section-2-4.6.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-2-4.7">
-          <p id="section-2-4.7.1">HPKE: Hybrid Public Key Encryption - The encryption scheme used by ECH as defined in <span>[<a href="#RFC9180" class="cite xref">RFC9180</a>]</span><a href="#section-2-4.7.1" class="pilcrow">¶</a></p>
+          <p id="section-2-4.7.1">CRL: Certificate Revocation List - A list of revoked certificates published by a Certificate Authority<a href="#section-2-4.7.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-2-4.8">
-          <p id="section-2-4.8.1">DER: Distinguished Encoding Rules - A binary encoding format for ASN.1 structures<a href="#section-2-4.8.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-2-4.9">
-          <p id="section-2-4.9.1">OCSP: Online Certificate Status Protocol - A method for checking certificate revocation status<a href="#section-2-4.9.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-2-4.10">
-          <p id="section-2-4.10.1">CRL: Certificate Revocation List - A list of revoked certificates published by a Certificate Authority<a href="#section-2-4.10.1" class="pilcrow">¶</a></p>
-</li>
-        <li class="normal" id="section-2-4.11">
-          <p id="section-2-4.11.1">CA: Certificate Authority - An entity that issues digital certificates<a href="#section-2-4.11.1" class="pilcrow">¶</a></p>
+          <p id="section-2-4.8.1">CA: Certificate Authority - An entity that issues digital certificates<a href="#section-2-4.8.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 <div id="terminology">
@@ -1459,9 +1437,21 @@ svg :is([fill="white"], [fill^="#fff"]) {
         <h3 id="name-raw-public-key-rpk">
 <a href="#section-3.1" class="section-number selfRef">3.1. </a><a href="#name-raw-public-key-rpk" class="section-name selfRef">Raw Public Key (RPK)</a>
         </h3>
-<p id="section-3.1-1">The ECHConfig is "pinned" to one or more public keys designated by the server for future updates. The <code>ech_auth</code> extension lists SPKI hashes (trusted_keys) when the RPK method is selected. The server possesses the corresponding private key(s) and uses one to sign updates.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
-<p id="section-3.1-2">Clients that have seen and stored these SPKI fingerprints will accept a new ECHConfigList only if it carries a valid digital signature made with one of the pinned keys. This provides a continuity-of-trust model: the initial SPKI pin is conveyed by the first ECHConfig the client obtains, after which updates can be authenticated by the pinned key without further external validation.<a href="#section-3.1-2" class="pilcrow">¶</a></p>
-<p id="section-3.1-3">No key identifier is used in the update object – clients simply try the candidate public keys from the pin list until one produces a valid signature. The update signature object includes a validity timestamp (<code>not_after</code>), ensuring the configuration has not expired.<a href="#section-3.1-3" class="pilcrow">¶</a></p>
+<p id="section-3.1-1">The ECHConfigList update is authenticated by a Raw Public Key (RPK). The ECHConfig's <code>ech_auth</code> extension carries a set of <code>trusted_keys</code>, each value being <code>SHA-256(SPKI)</code> of an RPK that is authorized to sign an update.<a href="#section-3.1-1" class="pilcrow">¶</a></p>
+<p id="section-3.1-2">A client receiving an authenticated update (e.g., in HRR/EE <code>retry_configs</code>) MUST:<a href="#section-3.1-2" class="pilcrow">¶</a></p>
+<ol start="1" type="1" class="normal type-1" id="section-3.1-3">
+<li id="section-3.1-3.1">
+            <p id="section-3.1-3.1.1">Extract the authenticator key's SubjectPublicKeyInfo (SPKI) and compute <code>sha256(spki)</code>. Verify membership in <code>trusted_keys</code>.<a href="#section-3.1-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-3.1-3.2">
+            <p id="section-3.1-3.2.1">Verify that <code>not_after</code> is strictly greater than the client's current time.<a href="#section-3.1-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li id="section-3.1-3.3">
+            <p id="section-3.1-3.3.1">Verify the signature over the <code>to_be_signed</code> input using the authenticator key.<a href="#section-3.1-3.3.1" class="pilcrow">¶</a></p>
+</li>
+        </ol>
+<p id="section-3.1-4">Clients MAY cache <code>trusted_keys</code> only for the lifetime of the associated ECHConfig and solely to authenticate a single retry-configs update per fresh connection attempt. Upon successful installation of a new ECHConfigList (via an authenticated update or a fresher out-of-band fetch), or upon expiration of the cached configuration, clients MUST clear any RPK state learned from the prior configuration.<a href="#section-3.1-4" class="pilcrow">¶</a></p>
+<p id="section-3.1-5">This specification defines no long-term pinning and no public-name authentication via RPK.<a href="#section-3.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="pkix-certificate-based">
@@ -1469,19 +1459,23 @@ svg :is([fill="white"], [fill^="#fff"]) {
         <h3 id="name-pkix-certificate-based">
 <a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-pkix-certificate-based" class="section-name selfRef">PKIX (Certificate-Based)</a>
         </h3>
-<p id="section-3.2-1">The ECHConfigList update is signed using a private key for which the server can present a certificate chain. In the update message, the server includes an X.509 certificate (and any intermediates as needed) that chains to a trusted root. The certificate must contain a new Extended Key Usage (EKU) indicating authority to sign ECH configurations.<a href="#section-3.2-1" class="pilcrow">¶</a></p>
-<p id="section-3.2-2">The certificate's subject must cover the ECH public name to prove that the signer is authoritative for that name. A client validates this method by verifying the certificate chain, checking the EKU, confirming the public name in the certificate, and then verifying the signature over the ECHConfigList using the certified public key.<a href="#section-3.2-2" class="pilcrow">¶</a></p>
-<p id="section-3.2-3">This method leverages the existing Web PKI trust model for authentication but uses a dedicated EKU to constrain the certificate's usage to ECH key management.<a href="#section-3.2-3" class="pilcrow">¶</a></p>
-</section>
-</div>
-<div id="dnssec">
-<section id="section-3.3">
-        <h3 id="name-dnssec">
-<a href="#section-3.3" class="section-number selfRef">3.3. </a><a href="#name-dnssec" class="section-name selfRef">DNSSEC</a>
-        </h3>
-<p id="section-3.3-1">The ECHConfigList is authenticated using the Domain Name System Security Extensions. In this method, the authenticator contains the DNSKEY record with the Zone Signing Key (ZSK) public key for the zone containing the ECHConfig's <code>public_name</code>, and the signature is computed directly by the corresponding ZSK private key.<a href="#section-3.3-1" class="pilcrow">¶</a></p>
-<p id="section-3.3-2">For example, if the <code>public_name</code> is <code>ech.example.net</code>, the authenticator would contain the DNSKEY for the <code>example.net</code> zone (or potentially <code>ech.example.net</code> if it is a delegated zone). The client validates that the DNSKEY is acceptable (e.g., matches a parent DS record or a locally trusted anchor) and verifies the signature using the ZSK public key. The <code>not_after</code> timestamp provides freshness guarantees.<a href="#section-3.3-2" class="pilcrow">¶</a></p>
-<p id="section-3.3-3">This method bootstraps trust in ECH keys from the global DNSSEC hierarchy rather than the Web PKI or a pinned key. It aligns with the existing DNS-based ECH bootstrap mechanism while delivering the proof in-band to the client.<a href="#section-3.3-3" class="pilcrow">¶</a></p>
+<p id="section-3.2-1">The update is signed with the private key corresponding to an X.509 certificate that chains to a locally trusted root and is valid for the ECHConfig <code>public_name</code> (i.e., appears in the certificate's SAN).<a href="#section-3.2-1" class="pilcrow">¶</a></p>
+<p id="section-3.2-2">The leaf certificate MUST include a new, critical X.509 v3 extension <code>id-pe-echConfigSigning</code> (OID: TBD) whose presence indicates authorization to sign ECH configuration updates for the DNS names in the certificate's SAN. Clients:<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<ul class="normal">
+<li class="normal" id="section-3.2-3.1">
+            <p id="section-3.2-3.1.1">MUST validate the certificate chain according to local policy;<a href="#section-3.2-3.1.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-3.2">
+            <p id="section-3.2-3.2.1">MUST confirm the SAN covers the ECHConfig <code>public_name</code>;<a href="#section-3.2-3.2.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-3.3">
+            <p id="section-3.2-3.3.1">MUST confirm the critical <code>id-pe-echConfigSigning</code> extension is present in the leaf; and<a href="#section-3.2-3.3.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-3.2-3.4">
+            <p id="section-3.2-3.4.1">MUST verify the ECH update signature with the leaf key.<a href="#section-3.2-3.4.1" class="pilcrow">¶</a></p>
+</li>
+        </ul>
+<p id="section-3.2-4">When this critical extension is present, clients MUST NOT accept the certificate for TLS server authentication. The <code>not_after</code> field in <code>ech_auth.signature</code> MUST be 0 for PKIX.<a href="#section-3.2-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1497,7 +1491,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         <h3 id="name-distinct-public-names-witho">
 <a href="#section-4.1" class="section-number selfRef">4.1. </a><a href="#name-distinct-public-names-witho" class="section-name selfRef">Distinct Public Names Without CA Certificates</a>
         </h3>
-<p id="section-4.1-1">A server can use many different public hostnames (even per-client, per-connection unique ones) to maximize the anonymity set or for other operational reasons <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, without having to obtain certificates for each. The RPK method (with SPKI pinning) allows the client to authenticate the server's ability to update ECH keys for those public names via a pinned key, rather than via a CA-issued certificate. This was not possible under the original ECH design, which required a valid certificate for any public name used <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>. Now, the public name authentication can be achieved by proving possession of the pinned key. Section <span><a href="#public-name-auth" class="internal xref">Public Name Authentication</a> (<a href="#public-name-auth" class="auto internal xref">Section 5.2.5</a>)</span> describes how this applies to ECH retry handshakes.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
+<p id="section-4.1-1">A server can use many different public hostnames (even per-client, per-connection unique ones) to maximize the anonymity set or for other operational reasons <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, without having to obtain certificates for each. The RPK method allows the client to authenticate the server's ability to update ECH keys for those public names via a key hash, rather than via a CA-issued certificate. This was not possible under the original ECH design, which required a valid certificate for any public name used <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>.<a href="#section-4.1-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="faster-and-safer-key-rotation">
@@ -1513,7 +1507,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
         <h3 id="name-out-of-band-distribution-sy">
 <a href="#section-4.3" class="section-number selfRef">4.3. </a><a href="#name-out-of-band-distribution-sy" class="section-name selfRef">Out-of-Band Distribution Synergy</a>
         </h3>
-<p id="section-4.3-1">Because the same authentication methods are defined for in-band and out-of-band, an ECHConfig obtained via DNS can carry the same signature that a TLS in-band update would, allowing clients to verify it even if their DNS channel is not fully trusted. For instance, a client might obtain an ECHConfig via DNS without DNSSEC; if that ECHConfig has an RPK pin, subsequent updates via TLS will be signed by that key, protecting against any earlier undetected DNS tampering. Similarly, a client that does not validate DNSSEC itself could still receive a DNSSEC-signed ECHConfig in the TLS handshake and validate it with the included DNSSEC proof, thus leveraging DNSSEC without requiring a local validating resolver.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
+<p id="section-4.3-1">Because the same authentication methods are defined for in-band and out-of-band, an ECHConfig obtained via DNS can carry the same signature that a TLS in-band update would, allowing clients to verify it even if their DNS channel is not fully trusted. For instance, a client might obtain an ECHConfig via DNS; if that ECHConfig has RPK trusted_keys, subsequent updates via TLS will be signed by that key, protecting against any earlier undetected DNS tampering.<a href="#section-4.3-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="design-simplicity">
@@ -1546,7 +1540,6 @@ enum {
     none(0),
     rpk(1),
     pkix(2),
-    dnssec(3),
     (255)
 } ECHAuthMethod;
 
@@ -1554,25 +1547,25 @@ enum {
 // doesn't use this enum directly, the registry still exists)
 // For now, implementations MUST use sha256(4). Future specs may allow others.
 opaque SPKIHash&lt;32..32&gt;;  // SHA-256 hash of DER-encoded SPKI
-
-struct {
-  ECHAuthMethod method;              // Single authentication method
-  SPKIHash trusted_keys&lt;0..2^16-1&gt;;  // RPK-only; SHA-256 hashes per IANA TLS
-                                      // HashAlgorithm registry value 4;
-                                      // zero-length if method != rpk
-
+</pre><a href="#section-5.1-4" class="pilcrow">¶</a>
+</div>
+<p id="section-5.1-5">struct {
+      ECHAuthMethod method;              // Single authentication method
+      SPKIHash trusted_keys&lt;0..2^16-1&gt;;  // RPK-only; SHA-256 hashes per IANA TLS
+                                          // HashAlgorithm registry value 4;
+                                          // zero-length if method != rpk<a href="#section-5.1-5" class="pilcrow">¶</a></p>
+<div class="alignLeft art-text artwork" id="section-5.1-6">
+<pre>
   // Optional signed authenticator. Present when the sender wishes
   // to provide a signed ECHConfig (e.g., in TLS retry_configs, or
-  // pre-signed in DNS).
-  struct {
+  // pre-signed in DNS). struct {
     opaque authenticator&lt;1..2^16-1&gt;; // method-specific material (see below)
-    uint64 not_after;                 // Unix timestamp; used by RPK and DNSSEC;
-                                      // MUST be 0 for PKIX
-    SignatureScheme algorithm;
+    uint64 not_after;                 // Unix timestamp; used by RPK;
+                                      // MUST be 0 for PKIX SignatureScheme algorithm;
     opaque signature&lt;1..2^16-1&gt;;
   } signature;                        // Optional; zero-length if not present
 } ECHAuth;
-</pre><a href="#section-5.1-4" class="pilcrow">¶</a>
+</pre><a href="#section-5.1-6" class="pilcrow">¶</a>
 </div>
 <div id="signature-computation">
 <section id="section-5.1.1">
@@ -1621,19 +1614,16 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <p id="section-5.1.1-6">Method-specific <code>authenticator</code>:<a href="#section-5.1.1-6" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-5.1.1-7.1">
-              <p id="section-5.1.1-7.1.1">RPK (method=1): the DER-encoded SubjectPublicKeyInfo (SPKI) of the signing key. The client MUST compute the SHA-256 hash of the SPKI, verify that it matches one of the hashes in <code>trusted_keys</code>, check that the current time is before the <code>not_after</code> timestamp, and then verify the signature with this key.<a href="#section-5.1.1-7.1.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-7.1.1">RPK (method=1): the DER-encoded SubjectPublicKeyInfo (SPKI) of the signing key. The client MUST compute the SHA-256 hash of the SPKI, verify that it matches one of the hashes in <code>trusted_keys</code>, check that the current time is before the <code>not_after</code> timestamp, and then verify the signature with this key. The <code>not_after</code> field is REQUIRED and MUST be a timestamp strictly greater than the client's current time at verification.<a href="#section-5.1.1-7.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-7.2">
-              <p id="section-5.1.1-7.2.1">PKIX (method=2): a CertificateEntry vector (leaf + optional intermediates) as in TLS 1.3 Certificate; the leaf MUST include the ECH-config-signing EKU and be valid for the ECHConfig <code>public_name</code>. The client validates the chain (which provides its own validity/lifetime bounds) and then verifies the signature with the leaf key.<a href="#section-5.1.1-7.2.1" class="pilcrow">¶</a></p>
-</li>
-            <li class="normal" id="section-5.1.1-7.3">
-              <p id="section-5.1.1-7.3.1">DNSSEC (method=3): the DNSKEY record containing the Zone Signing Key (ZSK) public key material for the zone containing the ECHConfig's <code>public_name</code>. The <code>authenticator</code> SHOULD include the DNSKEY (ZSK) for that zone and MAY include DS records from the parent zone to enable chain validation. The client validates that the DNSKEY corresponds to the correct zone for the <code>public_name</code>, verifies it matches any provided DS records or locally trusted anchors, checks that the current time is before the <code>not_after</code> timestamp, and then verifies the signature using the ZSK public key. This binds the ECHConfig to the domain via the DNSSEC key without requiring an RRSIG over an RRset in this channel.<a href="#section-5.1.1-7.3.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-7.2.1">PKIX (method=2): a CertificateEntry vector (leaf + optional intermediates) as in TLS 1.3 Certificate; the leaf MUST include the critical <code>id-pe-echConfigSigning</code> extension and be valid for the ECHConfig <code>public_name</code>. The client validates the chain, confirms the SAN includes the ECH <code>public_name</code>, confirms the critical <code>id-pe-echConfigSigning</code> extension is present in the leaf, and verifies the signature with the leaf key. The <code>not_after</code> field MUST be set to 0 (absent).<a href="#section-5.1.1-7.2.1" class="pilcrow">¶</a></p>
 </li>
           </ul>
 <p id="section-5.1.1-8">Notes:<a href="#section-5.1.1-8" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-5.1.1-9.1">
-              <p id="section-5.1.1-9.1.1"><code>trusted_keys</code> is only used by RPK; clients MUST ignore it for PKIX and DNSSEC.<a href="#section-5.1.1-9.1.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-9.1.1"><code>trusted_keys</code> is only used by RPK; clients MUST ignore it for PKIX.<a href="#section-5.1.1-9.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-9.2">
               <p id="section-5.1.1-9.2.1">If <code>method</code> is <code>rpk(1)</code>, <code>trusted_keys</code> MUST contain at least one SPKI hash; otherwise it MUST be zero-length.<a href="#section-5.1.1-9.2.1" class="pilcrow">¶</a></p>
@@ -1661,10 +1651,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
               <p id="section-5.1.1-17.1.1">If <code>method</code> is <code>rpk(1)</code>, the server needs a signing key whose SPKI hash is in <code>trusted_keys</code>. (It may have multiple keys for rotation; all keys that might sign an update before the next ECHConfig change should be listed. Pins can be added or removed by generating a new ECHConfig with an updated list and distributing it out-of-band or via an update.)<a href="#section-5.1.1-17.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-17.2">
-              <p id="section-5.1.1-17.2.1">If <code>method</code> is <code>pkix(2)</code>, the server must have a valid certificate (and chain) for the public name with the ECH configuration signing EKU (Section <span><a href="#iana" class="internal xref">IANA Considerations</a> (<a href="#iana" class="auto internal xref">Section 9</a>)</span> defines the EKU) available at runtime to use for signing. The certificate's public key algorithm dictates what signature algorithms are possible.<a href="#section-5.1.1-17.2.1" class="pilcrow">¶</a></p>
-</li>
-            <li class="normal" id="section-5.1.1-17.3">
-              <p id="section-5.1.1-17.3.1">If <code>method</code> is <code>dnssec(3)</code>, the server must have access to DNSSEC signing infrastructure for the zone (or a way to obtain fresh DNS records). In practice, the server might simply fetch its own DNS record and include the proof if it knows the zone is signed and it has the ability to get the RRSIG and DNSKEY; or an operator might provision a service to provide the needed DNSSEC blobs. The specifics are out of scope of this document, but the server should only use this method if it can produce a timely proof. (Including stale or incorrect DNSSEC data in an update will cause clients to ignore the update.)<a href="#section-5.1.1-17.3.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-17.2.1">If <code>method</code> is <code>pkix(2)</code>, the server must have a valid certificate (and chain) for the public name with the critical <code>id-pe-echConfigSigning</code> extension (Section <span><a href="#iana" class="internal xref">IANA Considerations</a> (<a href="#iana" class="auto internal xref">Section 9</a>)</span> defines the extension) available at runtime to use for signing. The certificate's public key algorithm dictates what signature algorithms are possible.<a href="#section-5.1.1-17.2.1" class="pilcrow">¶</a></p>
 </li>
           </ul>
 </section>
@@ -1704,7 +1691,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
               <p id="section-5.2.2-4.1.1">Using the authentication method specified in the ECHConfig's <code>ech_auth.method</code><a href="#section-5.2.2-4.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.2.2-4.2">
-              <p id="section-5.2.2-4.2.1">Creating the appropriate authenticator (RPK signature, PKIX certificate chain, or DNSSEC proof)<a href="#section-5.2.2-4.2.1" class="pilcrow">¶</a></p>
+              <p id="section-5.2.2-4.2.1">Creating the appropriate authenticator (RPK signature or PKIX certificate chain)<a href="#section-5.2.2-4.2.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.2.2-4.3">
               <p id="section-5.2.2-4.3.1">Including the authenticator in the ECHConfig's <code>ech_auth.signature</code> field<a href="#section-5.2.2-4.3.1" class="pilcrow">¶</a></p>
@@ -1723,7 +1710,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <p id="section-5.2.3-1">When a client retrieves an ECHConfig (e.g., from DNS), it examines the <code>ech_auth</code> extension and records:<a href="#section-5.2.3-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-5.2.3-2.1">
-              <p id="section-5.2.3-2.1.1">The authentication <code>method</code> (RPK, PKIX, or DNSSEC)<a href="#section-5.2.3-2.1.1" class="pilcrow">¶</a></p>
+              <p id="section-5.2.3-2.1.1">The authentication <code>method</code> (RPK or PKIX)<a href="#section-5.2.3-2.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.2.3-2.2">
               <p id="section-5.2.3-2.2.1">Any <code>trusted_keys</code> for RPK validation<a href="#section-5.2.3-2.2.1" class="pilcrow">¶</a></p>
@@ -1741,10 +1728,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
                   <p id="section-5.2.3-4.1.2.1.1">RPK: Computes the SHA-256 hash of the provided SPKI, verifies it matches one in <code>trusted_keys</code>, then verifies the signature<a href="#section-5.2.3-4.1.2.1.1" class="pilcrow">¶</a></p>
 </li>
                 <li class="normal" id="section-5.2.3-4.1.2.2">
-                  <p id="section-5.2.3-4.1.2.2.1">PKIX: Validates the certificate chain, verifies the leaf certificate covers the ECHConfig's <code>public_name</code>, checks for the ECH signing EKU, then verifies the signature<a href="#section-5.2.3-4.1.2.2.1" class="pilcrow">¶</a></p>
-</li>
-                <li class="normal" id="section-5.2.3-4.1.2.3">
-                  <p id="section-5.2.3-4.1.2.3.1">DNSSEC: Validates that the DNSKEY corresponds to the <code>public_name</code>'s zone, validates the DNSSEC chain, then verifies the signature<a href="#section-5.2.3-4.1.2.3.1" class="pilcrow">¶</a></p>
+                  <p id="section-5.2.3-4.1.2.2.1">PKIX: Validates the certificate chain, verifies the leaf certificate covers the ECHConfig's <code>public_name</code>, checks for the critical <code>id-pe-echConfigSigning</code> extension, then verifies the signature<a href="#section-5.2.3-4.1.2.2.1" class="pilcrow">¶</a></p>
 </li>
               </ul>
 </li>
@@ -1752,10 +1736,10 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
               <p id="section-5.2.3-4.2.1">Validity Checking: The client checks temporal validity:<a href="#section-5.2.3-4.2.1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-5.2.3-4.2.2.1">
-                  <p id="section-5.2.3-4.2.2.1.1">For RPK/DNSSEC: Verifies current time is before <code>not_after</code><a href="#section-5.2.3-4.2.2.1.1" class="pilcrow">¶</a></p>
+                  <p id="section-5.2.3-4.2.2.1.1">For RPK: Verifies current time is before <code>not_after</code><a href="#section-5.2.3-4.2.2.1.1" class="pilcrow">¶</a></p>
 </li>
                 <li class="normal" id="section-5.2.3-4.2.2.2">
-                  <p id="section-5.2.3-4.2.2.2.1">For PKIX: Verifies certificate validity period<a href="#section-5.2.3-4.2.2.2.1" class="pilcrow">¶</a></p>
+                  <p id="section-5.2.3-4.2.2.2.1">For PKIX: Verifies certificate validity period (the <code>not_after</code> field MUST be 0)<a href="#section-5.2.3-4.2.2.2.1" class="pilcrow">¶</a></p>
 </li>
               </ul>
 </li>
@@ -1810,32 +1794,6 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <a href="#section-5.2.4" class="section-number selfRef">5.2.4. </a><a href="#name-backward-compatibility" class="section-name selfRef">Backward Compatibility</a>
           </h4>
 <p id="section-5.2.4-1">Clients that do not implement this specification continue to process <code>retry_configs</code> as defined in <span>[<a href="#I-D.ietf-tls-esni" class="cite xref">I-D.ietf-tls-esni</a>]</span>, ignoring the authentication extensions. Servers that do not implement this specification send unauthenticated <code>retry_configs</code> as usual.<a href="#section-5.2.4-1" class="pilcrow">¶</a></p>
-</section>
-</div>
-<div id="public-name-auth">
-<section id="section-5.2.5">
-          <h4 id="name-public-name-authentication-">
-<a href="#section-5.2.5" class="section-number selfRef">5.2.5. </a><a href="#name-public-name-authentication-" class="section-name selfRef">Public Name Authentication for Pinned Keys</a>
-          </h4>
-<p id="section-5.2.5-1">When a server rejects ECH and continues with the outer handshake, it normally must present a certificate valid for the public name. This specification allows the use of pinned keys as an alternative to CA-issued certificates.<a href="#section-5.2.5-1" class="pilcrow">¶</a></p>
-<p id="section-5.2.5-2">If the ECHConfig's <code>ech_auth.method</code> is RPK and <code>trusted_keys</code> contains SPKI hashes:<a href="#section-5.2.5-2" class="pilcrow">¶</a></p>
-<ol start="1" type="1" class="normal type-1" id="section-5.2.5-3">
-<li id="section-5.2.5-3.1">
-              <p id="section-5.2.5-3.1.1">The server MAY present a certificate whose public key's SPKI hash matches one in <code>trusted_keys</code><a href="#section-5.2.5-3.1.1" class="pilcrow">¶</a></p>
-</li>
-            <li id="section-5.2.5-3.2">
-              <p id="section-5.2.5-3.2.1">The client computes the SPKI hash of the leaf certificate and checks for a match<a href="#section-5.2.5-3.2.1" class="pilcrow">¶</a></p>
-</li>
-            <li id="section-5.2.5-3.3">
-              <p id="section-5.2.5-3.3.1">If matched and the handshake completes (proving possession via CertificateVerify), the client MAY accept the server's identity for the public name<a href="#section-5.2.5-3.3.1" class="pilcrow">¶</a></p>
-</li>
-            <li id="section-5.2.5-3.4">
-              <p id="section-5.2.5-3.4.1">The client MUST still treat the connection as not authenticated for the inner origin<a href="#section-5.2.5-3.4.1" class="pilcrow">¶</a></p>
-</li>
-            <li id="section-5.2.5-3.5">
-              <p id="section-5.2.5-3.5.1">The connection is used solely to deliver the authenticated ECHConfig for retry<a href="#section-5.2.5-3.5.1" class="pilcrow">¶</a></p>
-</li>
-          </ol>
 </section>
 </div>
 </section>
@@ -1893,7 +1851,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
                 <p id="section-6.2-1.2.2.2.1">Selects PKIX method for signing<a href="#section-6.2-1.2.2.2.1" class="pilcrow">¶</a></p>
 </li>
               <li class="normal" id="section-6.2-1.2.2.3">
-                <p id="section-6.2-1.2.2.3.1">Signs the update with certificate having ECH signing EKU<a href="#section-6.2-1.2.2.3.1" class="pilcrow">¶</a></p>
+                <p id="section-6.2-1.2.2.3.1">Signs the update with certificate containing the critical <code>id-pe-echConfigSigning</code> extension<a href="#section-6.2-1.2.2.3.1" class="pilcrow">¶</a></p>
 </li>
             </ul>
 </li>
@@ -1921,7 +1879,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
                 <p id="section-6.2-1.4.2.1.1">Verifies ECH acceptance<a href="#section-6.2-1.4.2.1.1" class="pilcrow">¶</a></p>
 </li>
               <li class="normal" id="section-6.2-1.4.2.2">
-                <p id="section-6.2-1.4.2.2.1">Validates PKIX certificate chain and EKU<a href="#section-6.2-1.4.2.2.1" class="pilcrow">¶</a></p>
+                <p id="section-6.2-1.4.2.2.1">Validates PKIX certificate chain and critical extension<a href="#section-6.2-1.4.2.2.1" class="pilcrow">¶</a></p>
 </li>
               <li class="normal" id="section-6.2-1.4.2.3">
                 <p id="section-6.2-1.4.2.3.1">Verifies signature over ECHConfig<a href="#section-6.2-1.4.2.3.1" class="pilcrow">¶</a></p>
@@ -1953,7 +1911,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
                 <p id="section-6.3-1.3.2.1.1">Sends authenticated ECHConfig in EncryptedExtensions<a href="#section-6.3-1.3.2.1.1" class="pilcrow">¶</a></p>
 </li>
               <li class="normal" id="section-6.3-1.3.2.2">
-                <p id="section-6.3-1.3.2.2.1">Uses certificate for <code>ech.example.net</code> or pinned key<a href="#section-6.3-1.3.2.2.1" class="pilcrow">¶</a></p>
+                <p id="section-6.3-1.3.2.2.1">Uses certificate for <code>ech.example.net</code><a href="#section-6.3-1.3.2.2.1" class="pilcrow">¶</a></p>
 </li>
             </ul>
 </li>
@@ -2001,8 +1959,8 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <a href="#section-7.2.1" class="section-number selfRef">7.2.1. </a><a href="#name-initial-trust-bootstrap" class="section-name selfRef">Initial Trust Bootstrap</a>
           </h4>
 <p id="section-7.2.1-1">The security of this mechanism fundamentally depends on the authenticity of the initial ECHConfig. If an attacker can inject a malicious initial configuration, they may be able to pin their own keys in the <code>trusted_keys</code> field, enabling persistent interception.<a href="#section-7.2.1-1" class="pilcrow">¶</a></p>
-<p id="section-7.2.1-2">When ECHConfigs are obtained via DNS without DNSSEC validation, an on-path attacker could provide a fake ECHConfig with the attacker's key in <code>trusted_keys</code>. While the attacker cannot decrypt ECH-protected connections, they could cause ECH to fail and then present their own certificate during fallback, potentially tricking the client into accepting and caching a compromised configuration. Clients SHOULD prefer authenticated bootstrap mechanisms when available.<a href="#section-7.2.1-2" class="pilcrow">¶</a></p>
-<p id="section-7.2.1-3">DNSSEC-validated DNS records provide strong initial trust, as an attacker cannot forge configurations without compromising the DNSSEC infrastructure. Similarly, ECHConfigs obtained via HTTPS from a well-known URI benefit from Web PKI authentication. Pre-configured ECHConfigs in applications derive their trust from the application's distribution channel.<a href="#section-7.2.1-3" class="pilcrow">¶</a></p>
+<p id="section-7.2.1-2">When ECHConfigs are obtained via DNS, an on-path attacker could provide a fake ECHConfig with the attacker's key in <code>trusted_keys</code>. While the attacker cannot decrypt ECH-protected connections, they could cause ECH to fail and then present their own certificate during fallback, potentially tricking the client into accepting and caching a compromised configuration. Clients SHOULD prefer authenticated bootstrap mechanisms when available.<a href="#section-7.2.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.2.1-3">Initial retrieval of ECHConfigList via DNS is unchanged by this mechanism. This specification authenticates updates in-band via RPK or PKIX; it does not attempt to authenticate the initial DNS fetch. ECHConfigs obtained via HTTPS from a well-known URI benefit from Web PKI authentication. Pre-configured ECHConfigs in applications derive their trust from the application's distribution channel.<a href="#section-7.2.1-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="handshake-integrity">
@@ -2027,7 +1985,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <a href="#section-7.3.1" class="section-number selfRef">7.3.1. </a><a href="#name-signature-verification" class="section-name selfRef">Signature Verification</a>
           </h4>
 <p id="section-7.3.1-1">Clients MUST correctly implement signature verification for each authentication method. For RPK, servers and clients SHOULD use cryptographically strong signature schemes from the TLS 1.3 SignatureScheme registry, such as Ed25519, ECDSA, or RSA-PSS. Weak schemes like RSA PKCS#1 v1.5 SHOULD NOT be used.<a href="#section-7.3.1-1" class="pilcrow">¶</a></p>
-<p id="section-7.3.1-2">The inclusion of <code>not_after</code> timestamps (for RPK and DNSSEC) or certificate validity periods (for PKIX) ensures configuration freshness. These temporal bounds prevent clients from accepting stale configurations that might use compromised keys or outdated parameters. Clients MUST verify these temporal constraints and reject expired configurations. Note that these mechanisms depend on reasonably synchronized clocks (within 5 minutes of actual time is RECOMMENDED).<a href="#section-7.3.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.3.1-2">The inclusion of <code>not_after</code> timestamps (for RPK) or certificate validity periods (for PKIX) ensures configuration freshness. These temporal bounds prevent clients from accepting stale configurations that might use compromised keys or outdated parameters. Clients MUST verify these temporal constraints and reject expired configurations. Note that these mechanisms depend on reasonably synchronized clocks (within 5 minutes of actual time is RECOMMENDED).<a href="#section-7.3.1-2" class="pilcrow">¶</a></p>
 <p id="section-7.3.1-3">Note that signed ECHConfigs themselves are replayable - an attacker could capture and resend a valid signed configuration. However, this is not a security concern as the configuration is public data intended for distribution. The freshness guarantees ensure that old configurations eventually expire, limiting the window during which outdated keys remain acceptable.<a href="#section-7.3.1-3" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -2037,8 +1995,8 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <a href="#section-7.3.2" class="section-number selfRef">7.3.2. </a><a href="#name-key-management" class="section-name selfRef">Key Management</a>
           </h4>
 <p id="section-7.3.2-1">Servers MUST protect their ECH update signing keys. If an RPK signing key is compromised, the server SHOULD remove its hash from <code>trusted_keys</code> in subsequent updates, signing the transition with a different trusted key. Servers SHOULD consider including multiple keys in <code>trusted_keys</code> to facilitate key rotation and recovery from compromise.<a href="#section-7.3.2-1" class="pilcrow">¶</a></p>
-<p id="section-7.3.2-2">For PKIX-based updates, normal certificate lifecycle management applies. Servers SHOULD obtain new certificates before existing ones expire and MAY include the new certificate's key hash in <code>trusted_keys</code> to enable smooth transitions.<a href="#section-7.3.2-2" class="pilcrow">¶</a></p>
-<p id="section-7.3.2-3">For PKIX authentication, this specification leverages existing CA infrastructure including revocation mechanisms. A compromised ECH signing certificate could be used to sign malicious updates, but this risk is mitigated by the certificate's constraints (specific EKU and name binding) and standard revocation mechanisms (OCSP/CRL). Clients SHOULD apply the same revocation checks to ECH signing certificates as they do for TLS server certificates.<a href="#section-7.3.2-3" class="pilcrow">¶</a></p>
+<p id="section-7.3.2-2">For PKIX-based updates, normal certificate lifecycle management applies. Servers SHOULD obtain new certificates before existing ones expire.<a href="#section-7.3.2-2" class="pilcrow">¶</a></p>
+<p id="section-7.3.2-3">For PKIX authentication, this specification leverages existing CA infrastructure including revocation mechanisms. A compromised ECH signing certificate could be used to sign malicious updates, but this risk is mitigated by the certificate's constraints (critical extension and name binding) and standard revocation mechanisms (OCSP/CRL). Clients SHOULD apply the same revocation checks to ECH signing certificates as they do for TLS server certificates.<a href="#section-7.3.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -2054,11 +2012,10 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <a href="#section-7.4.1" class="section-number selfRef">7.4.1. </a><a href="#name-failure-handling" class="section-name selfRef">Failure Handling</a>
           </h4>
 <p id="section-7.4.1-1">When ECHConfig update verification fails, clients MUST NOT compromise the security or privacy guarantees of ECH. If ECH was accepted but the update verification failed, the connection proceeds normally without caching the new configuration. This represents a safe failure mode where connectivity is maintained but key rotation is delayed.<a href="#section-7.4.1-1" class="pilcrow">¶</a></p>
-<p id="section-7.4.1-2">If ECH was rejected and the update verification also fails, the client lacks a valid configuration for retry. In this case, the client SHOULD NOT proceed with the connection using the outer SNI for application data, as this would violate ECH's privacy goals. The client MAY attempt to obtain a valid configuration through other means (such as DNS with DNSSEC) or treat the connection as failed.<a href="#section-7.4.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.4.1-2">If ECH was rejected and the update verification also fails, the client lacks a valid configuration for retry. In this case, the client SHOULD NOT proceed with the connection using the outer SNI for application data, as this would violate ECH's privacy goals. The client MAY attempt to obtain a valid configuration through other means (such as DNS) or treat the connection as failed.<a href="#section-7.4.1-2" class="pilcrow">¶</a></p>
 <p id="section-7.4.1-3">Servers MAY include multiple ECHConfigs with different authentication methods to maximize the probability of successful verification. Clients SHOULD process these in order and use the first configuration that successfully verifies.<a href="#section-7.4.1-3" class="pilcrow">¶</a></p>
 <p id="section-7.4.1-4">In distributed deployments, only servers with access to the appropriate signing keys can generate valid ECHConfig updates. This prevents unauthorized intermediaries (such as CDN nodes) from injecting malicious configurations. If a server sends an update that cannot be verified, the client simply ignores it and continues with its existing configuration. While this could potentially lead to the use of outdated configurations, it prevents compromise of the ECH mechanism itself.<a href="#section-7.4.1-4" class="pilcrow">¶</a></p>
-<p id="section-7.4.1-5">DNSSEC authentication relies on the security of the DNS hierarchy. Implementations MUST properly validate the entire DNSSEC chain from the ECHConfig's zone to a trusted anchor. If the validation chain cannot be completed, the update MUST be rejected.<a href="#section-7.4.1-5" class="pilcrow">¶</a></p>
-<p id="section-7.4.1-6">Algorithm agility is provided through the TLS SignatureScheme registry for RPK, standard PKIX certificate algorithms, and DNSSEC's algorithm negotiation mechanisms. Implementations SHOULD support commonly deployed algorithms and MUST be able to handle algorithm transitions.<a href="#section-7.4.1-6" class="pilcrow">¶</a></p>
+<p id="section-7.4.1-5">Algorithm agility is provided through the TLS SignatureScheme registry for RPK and standard PKIX certificate algorithms. Implementations SHOULD support commonly deployed algorithms and MUST be able to handle algorithm transitions.<a href="#section-7.4.1-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="denial-of-service-considerations">
@@ -2066,7 +2023,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
           <h4 id="name-denial-of-service-considera">
 <a href="#section-7.4.2" class="section-number selfRef">7.4.2. </a><a href="#name-denial-of-service-considera" class="section-name selfRef">Denial of Service Considerations</a>
           </h4>
-<p id="section-7.4.2-1">Signature verification introduces computational costs, particularly for DNSSEC validation. However, these operations occur only during ECH configuration updates, not on every connection. The additional data in EncryptedExtensions (certificates or DNSSEC records) may increase message sizes, potentially causing fragmentation in some scenarios. Implementations SHOULD be aware of message size limits, particularly in QUIC deployments.<a href="#section-7.4.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.4.2-1">Signature verification introduces computational costs. However, these operations occur only during ECH configuration updates, not on every connection. The additional data in EncryptedExtensions (certificates) may increase message sizes, potentially causing fragmentation in some scenarios. Implementations SHOULD be aware of message size limits, particularly in QUIC deployments.<a href="#section-7.4.2-1" class="pilcrow">¶</a></p>
 <p id="section-7.4.2-2">Attackers cannot force servers to send signed ECHConfigs without establishing TLS connections. Standard TLS denial-of-service mitigations (rate limiting, stateless cookies) apply equally to this mechanism.<a href="#section-7.4.2-2" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -2082,8 +2039,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <p id="section-8-1">This mechanism preserves and potentially enhances ECH's privacy properties. By enabling the use of diverse public names through RPK authentication, servers can increase the anonymity set beyond what is possible with certificate-based authentication alone.<a href="#section-8-1" class="pilcrow">¶</a></p>
 <p id="section-8-2">The ECHConfig updates themselves are delivered within encrypted TLS messages (HelloRetryRequest or EncryptedExtensions), preventing passive observers from learning about configuration changes. The mechanism ensures that even during retry scenarios, the client's intended server name is never exposed in cleartext.<a href="#section-8-2" class="pilcrow">¶</a></p>
 <p id="section-8-3">A potential privacy consideration is that failed ECH attempts followed by successful retries create a distinctive connection pattern. However, this pattern only reveals that ECH was used with a particular public name, not the intended destination behind that name.<a href="#section-8-3" class="pilcrow">¶</a></p>
-<p id="section-8-4">The use of DNSSEC authentication may trigger additional DNS queries for validation, but these queries reveal no more information than the initial ECH configuration fetch. Clients using validating resolvers avoid additional on-wire queries entirely.<a href="#section-8-4" class="pilcrow">¶</a></p>
-<p id="section-8-5">This specification introduces no new tracking mechanisms or identifiers beyond those already present in TLS and DNS.<a href="#section-8-5" class="pilcrow">¶</a></p>
+<p id="section-8-4">This specification introduces no new tracking mechanisms or identifiers beyond those already present in TLS and DNS.<a href="#section-8-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana">
@@ -2113,27 +2069,29 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
         </ul>
 </section>
 </div>
-<div id="extended-key-usage-oid">
+<div id="x509-certificate-extension-oid">
 <section id="section-9.2">
-        <h3 id="name-extended-key-usage-oid">
-<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-extended-key-usage-oid" class="section-name selfRef">Extended Key Usage OID</a>
+        <h3 id="name-x509-certificate-extension-">
+<a href="#section-9.2" class="section-number selfRef">9.2. </a><a href="#name-x509-certificate-extension-" class="section-name selfRef">X.509 Certificate Extension OID</a>
         </h3>
-<p id="section-9.2-1">IANA is requested to allocate a new OID in the "SMI Security for PKIX Extended Key Purpose" registry:<a href="#section-9.2-1" class="pilcrow">¶</a></p>
+<p id="section-9.2-1">IANA is requested to allocate an object identifier (OID) under the "SMI Security for PKIX Certificate Extensions (1.3.6.1.5.5.7.1)" registry with the following values:<a href="#section-9.2-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-9.2-2.1">
-            <p id="section-9.2-2.1.1">OID: 1.3.6.1.5.5.7.3.TBD2<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
+            <p id="section-9.2-2.1.1">OID: id-pe-echConfigSigning (1.3.6.1.5.5.7.1.TBD2)<a href="#section-9.2-2.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.2-2.2">
-            <p id="section-9.2-2.2.1">Description: id-kp-echConfigSigning<a href="#section-9.2-2.2.1" class="pilcrow">¶</a></p>
+            <p id="section-9.2-2.2.1">Name: ECH Configuration Signing<a href="#section-9.2-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.2-2.3">
-            <p id="section-9.2-2.3.1">Purpose: ECH Configuration Signing<a href="#section-9.2-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-9.2-2.3.1">Description: Indicates that the certificate's subject public key is authorized to sign ECH configuration updates for the DNS names in the certificate's Subject Alternative Name (SAN).<a href="#section-9.2-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-9.2-2.4">
-            <p id="section-9.2-2.4.1">Reference: This document<a href="#section-9.2-2.4.1" class="pilcrow">¶</a></p>
+            <p id="section-9.2-2.4.1">Criticality: Certificates containing this extension MUST mark it critical.<a href="#section-9.2-2.4.1" class="pilcrow">¶</a></p>
+</li>
+          <li class="normal" id="section-9.2-2.5">
+            <p id="section-9.2-2.5.1">Reference: This document.<a href="#section-9.2-2.5.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
-<p id="section-9.2-3">Certificates containing this EKU are authorized to sign ECH configuration updates for the names in the certificate's SAN field.<a href="#section-9.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="ech-authentication-methods-registry">
@@ -2162,31 +2120,19 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
             <tr>
               <td class="text-left" rowspan="1" colspan="1">1</td>
               <td class="text-left" rowspan="1" colspan="1">RPK</td>
-              <td class="text-left" rowspan="1" colspan="1">Raw Public Key (pinned key)</td>
+              <td class="text-left" rowspan="1" colspan="1">Raw Public Key</td>
               <td class="text-left" rowspan="1" colspan="1">This document</td>
             </tr>
             <tr>
               <td class="text-left" rowspan="1" colspan="1">2</td>
               <td class="text-left" rowspan="1" colspan="1">PKIX</td>
-              <td class="text-left" rowspan="1" colspan="1">X.509 Certificate</td>
+              <td class="text-left" rowspan="1" colspan="1">X.509 with critical id-pe-echConfigSigning</td>
               <td class="text-left" rowspan="1" colspan="1">This document</td>
             </tr>
             <tr>
-              <td class="text-left" rowspan="1" colspan="1">3</td>
-              <td class="text-left" rowspan="1" colspan="1">DNSSEC</td>
-              <td class="text-left" rowspan="1" colspan="1">DNSSEC Authentication</td>
-              <td class="text-left" rowspan="1" colspan="1">This document</td>
-            </tr>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">4</td>
-              <td class="text-left" rowspan="1" colspan="1">Reserved</td>
-              <td class="text-left" rowspan="1" colspan="1">Reserved for future use</td>
-              <td class="text-left" rowspan="1" colspan="1">This document</td>
-            </tr>
-            <tr>
-              <td class="text-left" rowspan="1" colspan="1">5-255</td>
+              <td class="text-left" rowspan="1" colspan="1">3-255</td>
               <td class="text-left" rowspan="1" colspan="1">Unassigned</td>
-              <td class="text-left" rowspan="1" colspan="1">Available for future assignment</td>
+              <td class="text-left" rowspan="1" colspan="1">-</td>
               <td class="text-left" rowspan="1" colspan="1">-</td>
             </tr>
           </tbody>
@@ -2206,7 +2152,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
         <h3 id="name-method-selection">
 <a href="#section-10.1" class="section-number selfRef">10.1. </a><a href="#name-method-selection" class="section-name selfRef">Method Selection</a>
         </h3>
-<p id="section-10.1-1">Operators SHOULD support at least one widely implemented method. PKIX provides broad compatibility with existing PKI infrastructure. DNSSEC leverages DNS security. RPK offers operational independence but requires careful pin lifecycle management.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
+<p id="section-10.1-1">Operators SHOULD support at least one widely implemented method. PKIX (critical extension) provides easier operational deployment with standard certificate issuance workflows and no client pin state. RPK offers small artifacts and simple verification; any client-side state is bounded to the lifetime of the current ECHConfig and a single authenticated retry per connection attempt.<a href="#section-10.1-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="size-considerations">
@@ -2214,7 +2160,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
         <h3 id="name-size-considerations">
 <a href="#section-10.2" class="section-number selfRef">10.2. </a><a href="#name-size-considerations" class="section-name selfRef">Size Considerations</a>
         </h3>
-<p id="section-10.2-1">When sending authenticated ECHConfigs in HelloRetryRequest, servers should be mindful of message size to avoid fragmentation or exceeding anti-amplification limits. RPK signatures are typically more compact than PKIX certificate chains or DNSSEC proofs.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
+<p id="section-10.2-1">When sending authenticated ECHConfigs in HelloRetryRequest, servers should be mindful of message size to avoid fragmentation or exceeding anti-amplification limits. RPK signatures are typically more compact than PKIX certificate chains.<a href="#section-10.2-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="key-rotation">
@@ -2239,7 +2185,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
             <p id="section-10.4-2.2.1">Remove compromised pins via authenticated updates signed by remaining trusted keys<a href="#section-10.4-2.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-10.4-2.3">
-            <p id="section-10.4-2.3.1">Consider using PKIX or DNSSEC to re-establish trust if all pinned keys are compromised<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
+            <p id="section-10.4-2.3.1">Consider using PKIX to re-establish trust if all pinned keys are compromised<a href="#section-10.4-2.3.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
@@ -2254,10 +2200,18 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 </div>
 </section>
 </div>
-<div id="sec-normative-references">
+<div id="acknowledgments">
 <section id="section-11">
+      <h2 id="name-acknowledgments">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="section-11-1">The authors thank Martin Thomson for earlier contributions and discussions on the initial draft.<a href="#section-11-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="sec-normative-references">
+<section id="section-12">
       <h2 id="name-normative-references">
-<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
       </h2>
 <dl class="references">
 <dt id="RFC2119">[RFC2119]</dt>
@@ -2280,18 +2234,6 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
       <dd>
 <span class="refAuthor">Schwartz, B.</span>, <span class="refAuthor">Bishop, M.</span>, and <span class="refAuthor">E. Nygren</span>, <span class="refTitle">"Service Binding and Parameter Specification via the DNS (SVCB and HTTPS Resource Records)"</span>, <span class="seriesInfo">RFC 9460</span>, <span class="seriesInfo">DOI 10.17487/RFC9460</span>, <time datetime="2023-11" class="refDate">November 2023</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9460">https://www.rfc-editor.org/info/rfc9460</a>&gt;</span>. </dd>
 <dd class="break"></dd>
-<dt id="RFC4033">[RFC4033]</dt>
-      <dd>
-<span class="refAuthor">Arends, R.</span>, <span class="refAuthor">Austein, R.</span>, <span class="refAuthor">Larson, M.</span>, <span class="refAuthor">Massey, D.</span>, and <span class="refAuthor">S. Rose</span>, <span class="refTitle">"DNS Security Introduction and Requirements"</span>, <span class="seriesInfo">RFC 4033</span>, <span class="seriesInfo">DOI 10.17487/RFC4033</span>, <time datetime="2005-03" class="refDate">March 2005</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc4033">https://www.rfc-editor.org/info/rfc4033</a>&gt;</span>. </dd>
-<dd class="break"></dd>
-<dt id="RFC4034">[RFC4034]</dt>
-      <dd>
-<span class="refAuthor">Arends, R.</span>, <span class="refAuthor">Austein, R.</span>, <span class="refAuthor">Larson, M.</span>, <span class="refAuthor">Massey, D.</span>, and <span class="refAuthor">S. Rose</span>, <span class="refTitle">"Resource Records for the DNS Security Extensions"</span>, <span class="seriesInfo">RFC 4034</span>, <span class="seriesInfo">DOI 10.17487/RFC4034</span>, <time datetime="2005-03" class="refDate">March 2005</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc4034">https://www.rfc-editor.org/info/rfc4034</a>&gt;</span>. </dd>
-<dd class="break"></dd>
-<dt id="RFC4035">[RFC4035]</dt>
-      <dd>
-<span class="refAuthor">Arends, R.</span>, <span class="refAuthor">Austein, R.</span>, <span class="refAuthor">Larson, M.</span>, <span class="refAuthor">Massey, D.</span>, and <span class="refAuthor">S. Rose</span>, <span class="refTitle">"Protocol Modifications for the DNS Security Extensions"</span>, <span class="seriesInfo">RFC 4035</span>, <span class="seriesInfo">DOI 10.17487/RFC4035</span>, <time datetime="2005-03" class="refDate">March 2005</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc4035">https://www.rfc-editor.org/info/rfc4035</a>&gt;</span>. </dd>
-<dd class="break"></dd>
 <dt id="I-D.ietf-tls-esni">[I-D.ietf-tls-esni]</dt>
       <dd>
 <span class="refAuthor">Rescorla, E.</span>, <span class="refAuthor">Oku, K.</span>, <span class="refAuthor">Sullivan, N.</span>, and <span class="refAuthor">C. A. Wood</span>, <span class="refTitle">"TLS Encrypted Client Hello"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-esni-25</span>, <time datetime="2025-06-14" class="refDate">14 June 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-25">https://datatracker.ietf.org/doc/html/draft-ietf-tls-esni-25</a>&gt;</span>. </dd>
@@ -2302,7 +2244,7 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <dd class="break"></dd>
 <dt id="I-D.ietf-tls-wkech">[I-D.ietf-tls-wkech]</dt>
     <dd>
-<span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Salz, R.</span>, and <span class="refAuthor">B. M. Schwartz</span>, <span class="refTitle">"A well-known URI for publishing service parameters"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-wkech-09</span>, <time datetime="2025-09-02" class="refDate">2 September 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-09">https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-09</a>&gt;</span>. </dd>
+<span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Salz, R.</span>, and <span class="refAuthor">B. M. Schwartz</span>, <span class="refTitle">"A well-known URI for publishing service parameters"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-wkech-10</span>, <time datetime="2025-10-19" class="refDate">19 October 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-10">https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-10</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 </dl>
 </section>
@@ -2315,10 +2257,6 @@ dependency by zeroing out only the signature bytes themselves<a href="#section-5
 <address class="vcard">
         <div dir="auto" class="left"><span class="fn nameRole">Nick Sullivan</span></div>
 <div dir="auto" class="left"><span class="org">Cryptography Consulting LLC</span></div>
-</address>
-<address class="vcard">
-        <div dir="auto" class="left"><span class="fn nameRole">Martin Thomson</span></div>
-<div dir="auto" class="left"><span class="org">Mozilla</span></div>
 </address>
 <address class="vcard">
         <div dir="auto" class="left"><span class="fn nameRole">Dennis Jackson</span></div>

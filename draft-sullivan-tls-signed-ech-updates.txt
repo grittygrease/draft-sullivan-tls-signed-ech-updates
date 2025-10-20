@@ -4,10 +4,9 @@
 
 TLS                                                          N. Sullivan
 Internet-Draft                               Cryptography Consulting LLC
-Intended status: Standards Track                              M. Thomson
-Expires: 29 March 2026                                        D. Jackson
-                                                                 Mozilla
-                                                       25 September 2025
+Intended status: Standards Track                              D. Jackson
+Expires: 23 April 2026                                           Mozilla
+                                                         20 October 2025
 
 
            Authenticated ECH Config Distribution and Rotation
@@ -55,7 +54,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 29 March 2026.
+   This Internet-Draft will expire on 23 April 2026.
 
 Copyright Notice
 
@@ -79,7 +78,6 @@ Table of Contents
    3.  Mechanism Overview
      3.1.  Raw Public Key (RPK)
      3.2.  PKIX (Certificate-Based)
-     3.3.  DNSSEC
    4.  Benefits of Signed ECH Configurations
      4.1.  Distinct Public Names Without CA Certificates
      4.2.  Faster and Safer Key Rotation
@@ -93,7 +91,6 @@ Table of Contents
        5.2.2.  Server Behavior
        5.2.3.  Client Behavior
        5.2.4.  Backward Compatibility
-       5.2.5.  Public Name Authentication for Pinned Keys
    6.  Example Exchange
      6.1.  Initial Setup
      6.2.  Successful ECH with Update
@@ -112,7 +109,7 @@ Table of Contents
    8.  Privacy Considerations
    9.  IANA Considerations
      9.1.  ECHConfig Extension
-     9.2.  Extended Key Usage OID
+     9.2.  X.509 Certificate Extension OID
      9.3.  ECH Authentication Methods Registry
    10. Deployment Considerations
      10.1.  Method Selection
@@ -120,7 +117,8 @@ Table of Contents
      10.3.  Key Rotation
      10.4.  Pin Management
      10.5.  Update Consistency
-   11. Normative References
+   11. Acknowledgments
+   12. Normative References
    Authors' Addresses
 
 1.  Introduction
@@ -155,16 +153,13 @@ Table of Contents
    terminated and retried with updated configurations rather than
    exposing the protected name.
 
-   The mechanism supports three authentication methods through the
+   The mechanism supports two authentication methods through the
    ech_auth ECHConfig extension:
 
-   1.  Raw Public Key (RPK) - SPKI pinning established from initial
-       authenticated configuration
+   1.  Raw Public Key (RPK) - SPKI hashing for configuration-specific
+       trust
 
-   2.  PKIX - Certificate-based signing with a dedicated Extended Key
-       Usage
-
-   3.  DNSSEC - Authentication via DNS Security Extensions
+   2.  PKIX - Certificate-based signing with a critical X.509 extension
 
    Each ECHConfig carries at most one signature using the specified
    method.  By authenticating ECH configs independently, the mechanism
@@ -192,14 +187,6 @@ Table of Contents
 
    *  SPKI: SubjectPublicKeyInfo - The ASN.1 structure containing a
       public key and its algorithm identifier
-
-   *  EKU: Extended Key Usage - An X.509 certificate extension that
-      defines allowed uses
-
-   *  ZSK: Zone Signing Key - A DNSSEC key used to sign DNS records
-      within a zone
-
-   *  KSK: Key Signing Key - A DNSSEC key used to sign other DNSSEC keys
 
    *  HPKE: Hybrid Public Key Encryption - The encryption scheme used by
       ECH as defined in [RFC9180]
@@ -266,62 +253,57 @@ Table of Contents
 
 3.1.  Raw Public Key (RPK)
 
-   The ECHConfig is "pinned" to one or more public keys designated by
-   the server for future updates.  The ech_auth extension lists SPKI
-   hashes (trusted_keys) when the RPK method is selected.  The server
-   possesses the corresponding private key(s) and uses one to sign
-   updates.
+   The ECHConfigList update is authenticated by a Raw Public Key (RPK).
+   The ECHConfig's ech_auth extension carries a set of trusted_keys,
+   each value being SHA-256(SPKI) of an RPK that is authorized to sign
+   an update.
 
-   Clients that have seen and stored these SPKI fingerprints will accept
-   a new ECHConfigList only if it carries a valid digital signature made
-   with one of the pinned keys.  This provides a continuity-of-trust
-   model: the initial SPKI pin is conveyed by the first ECHConfig the
-   client obtains, after which updates can be authenticated by the
-   pinned key without further external validation.
+   A client receiving an authenticated update (e.g., in HRR/EE
+   retry_configs) MUST:
 
-   No key identifier is used in the update object – clients simply try
-   the candidate public keys from the pin list until one produces a
-   valid signature.  The update signature object includes a validity
-   timestamp (not_after), ensuring the configuration has not expired.
+   1.  Extract the authenticator key's SubjectPublicKeyInfo (SPKI) and
+       compute sha256(spki).  Verify membership in trusted_keys.
+
+   2.  Verify that not_after is strictly greater than the client's
+       current time.
+
+   3.  Verify the signature over the to_be_signed input using the
+       authenticator key.
+
+   Clients MAY cache trusted_keys only for the lifetime of the
+   associated ECHConfig and solely to authenticate a single retry-
+   configs update per fresh connection attempt.  Upon successful
+   installation of a new ECHConfigList (via an authenticated update or a
+   fresher out-of-band fetch), or upon expiration of the cached
+   configuration, clients MUST clear any RPK state learned from the
+   prior configuration.
+
+   This specification defines no long-term pinning and no public-name
+   authentication via RPK.
 
 3.2.  PKIX (Certificate-Based)
 
-   The ECHConfigList update is signed using a private key for which the
-   server can present a certificate chain.  In the update message, the
-   server includes an X.509 certificate (and any intermediates as
-   needed) that chains to a trusted root.  The certificate must contain
-   a new Extended Key Usage (EKU) indicating authority to sign ECH
-   configurations.
+   The update is signed with the private key corresponding to an X.509
+   certificate that chains to a locally trusted root and is valid for
+   the ECHConfig public_name (i.e., appears in the certificate's SAN).
 
-   The certificate's subject must cover the ECH public name to prove
-   that the signer is authoritative for that name.  A client validates
-   this method by verifying the certificate chain, checking the EKU,
-   confirming the public name in the certificate, and then verifying the
-   signature over the ECHConfigList using the certified public key.
+   The leaf certificate MUST include a new, critical X.509 v3 extension
+   id-pe-echConfigSigning (OID: TBD) whose presence indicates
+   authorization to sign ECH configuration updates for the DNS names in
+   the certificate's SAN.  Clients:
 
-   This method leverages the existing Web PKI trust model for
-   authentication but uses a dedicated EKU to constrain the
-   certificate's usage to ECH key management.
+   *  MUST validate the certificate chain according to local policy;
 
-3.3.  DNSSEC
+   *  MUST confirm the SAN covers the ECHConfig public_name;
 
-   The ECHConfigList is authenticated using the Domain Name System
-   Security Extensions.  In this method, the authenticator contains the
-   DNSKEY record with the Zone Signing Key (ZSK) public key for the zone
-   containing the ECHConfig's public_name, and the signature is computed
-   directly by the corresponding ZSK private key.
+   *  MUST confirm the critical id-pe-echConfigSigning extension is
+      present in the leaf; and
 
-   For example, if the public_name is ech.example.net, the authenticator
-   would contain the DNSKEY for the example.net zone (or potentially
-   ech.example.net if it is a delegated zone).  The client validates
-   that the DNSKEY is acceptable (e.g., matches a parent DS record or a
-   locally trusted anchor) and verifies the signature using the ZSK
-   public key.  The not_after timestamp provides freshness guarantees.
+   *  MUST verify the ECH update signature with the leaf key.
 
-   This method bootstraps trust in ECH keys from the global DNSSEC
-   hierarchy rather than the Web PKI or a pinned key.  It aligns with
-   the existing DNS-based ECH bootstrap mechanism while delivering the
-   proof in-band to the client.
+   When this critical extension is present, clients MUST NOT accept the
+   certificate for TLS server authentication.  The not_after field in
+   ech_auth.signature MUST be 0 for PKIX.
 
 4.  Benefits of Signed ECH Configurations
 
@@ -335,15 +317,11 @@ Table of Contents
    A server can use many different public hostnames (even per-client,
    per-connection unique ones) to maximize the anonymity set or for
    other operational reasons [I-D.ietf-tls-esni], without having to
-   obtain certificates for each.  The RPK method (with SPKI pinning)
-   allows the client to authenticate the server's ability to update ECH
-   keys for those public names via a pinned key, rather than via a CA-
-   issued certificate.  This was not possible under the original ECH
-   design, which required a valid certificate for any public name used
-   [I-D.ietf-tls-esni].  Now, the public name authentication can be
-   achieved by proving possession of the pinned key.  Section Public
-   Name Authentication (Section 5.2.5) describes how this applies to ECH
-   retry handshakes.
+   obtain certificates for each.  The RPK method allows the client to
+   authenticate the server's ability to update ECH keys for those public
+   names via a key hash, rather than via a CA-issued certificate.  This
+   was not possible under the original ECH design, which required a
+   valid certificate for any public name used [I-D.ietf-tls-esni].
 
 4.2.  Faster and Safer Key Rotation
 
@@ -359,13 +337,9 @@ Table of Contents
    out-of-band, an ECHConfig obtained via DNS can carry the same
    signature that a TLS in-band update would, allowing clients to verify
    it even if their DNS channel is not fully trusted.  For instance, a
-   client might obtain an ECHConfig via DNS without DNSSEC; if that
-   ECHConfig has an RPK pin, subsequent updates via TLS will be signed
-   by that key, protecting against any earlier undetected DNS tampering.
-   Similarly, a client that does not validate DNSSEC itself could still
-   receive a DNSSEC-signed ECHConfig in the TLS handshake and validate
-   it with the included DNSSEC proof, thus leveraging DNSSEC without
-   requiring a local validating resolver.
+   client might obtain an ECHConfig via DNS; if that ECHConfig has RPK
+   trusted_keys, subsequent updates via TLS will be signed by that key,
+   protecting against any earlier undetected DNS tampering.
 
 4.4.  Design Simplicity
 
@@ -413,7 +387,6 @@ enum {
     none(0),
     rpk(1),
     pkix(2),
-    dnssec(3),
     (255)
 } ECHAuthMethod;
 
@@ -422,20 +395,17 @@ enum {
 // For now, implementations MUST use sha256(4). Future specs may allow others.
 opaque SPKIHash<32..32>;  // SHA-256 hash of DER-encoded SPKI
 
-struct {
-  ECHAuthMethod method;              // Single authentication method
-  SPKIHash trusted_keys<0..2^16-1>;  // RPK-only; SHA-256 hashes per IANA TLS
-                                      // HashAlgorithm registry value 4;
-                                      // zero-length if method != rpk
+   struct { ECHAuthMethod method; // Single authentication method
+   SPKIHash trusted_keys<0..2^16-1>; // RPK-only; SHA-256 hashes per
+   IANA TLS // HashAlgorithm registry value 4; // zero-length if method
+   != rpk
 
   // Optional signed authenticator. Present when the sender wishes
   // to provide a signed ECHConfig (e.g., in TLS retry_configs, or
-  // pre-signed in DNS).
-  struct {
+  // pre-signed in DNS). struct {
     opaque authenticator<1..2^16-1>; // method-specific material (see below)
-    uint64 not_after;                 // Unix timestamp; used by RPK and DNSSEC;
-                                      // MUST be 0 for PKIX
-    SignatureScheme algorithm;
+    uint64 not_after;                 // Unix timestamp; used by RPK;
+                                      // MUST be 0 for PKIX SignatureScheme algorithm;
     opaque signature<1..2^16-1>;
   } signature;                        // Optional; zero-length if not present
 } ECHAuth;
@@ -482,31 +452,22 @@ struct {
       signing key.  The client MUST compute the SHA-256 hash of the
       SPKI, verify that it matches one of the hashes in trusted_keys,
       check that the current time is before the not_after timestamp, and
-      then verify the signature with this key.
+      then verify the signature with this key.  The not_after field is
+      REQUIRED and MUST be a timestamp strictly greater than the
+      client's current time at verification.
 
    *  PKIX (method=2): a CertificateEntry vector (leaf + optional
       intermediates) as in TLS 1.3 Certificate; the leaf MUST include
-      the ECH-config-signing EKU and be valid for the ECHConfig
-      public_name.  The client validates the chain (which provides its
-      own validity/lifetime bounds) and then verifies the signature with
-      the leaf key.
-
-   *  DNSSEC (method=3): the DNSKEY record containing the Zone Signing
-      Key (ZSK) public key material for the zone containing the
-      ECHConfig's public_name.  The authenticator SHOULD include the
-      DNSKEY (ZSK) for that zone and MAY include DS records from the
-      parent zone to enable chain validation.  The client validates that
-      the DNSKEY corresponds to the correct zone for the public_name,
-      verifies it matches any provided DS records or locally trusted
-      anchors, checks that the current time is before the not_after
-      timestamp, and then verifies the signature using the ZSK public
-      key.  This binds the ECHConfig to the domain via the DNSSEC key
-      without requiring an RRSIG over an RRset in this channel.
+      the critical id-pe-echConfigSigning extension and be valid for the
+      ECHConfig public_name.  The client validates the chain, confirms
+      the SAN includes the ECH public_name, confirms the critical id-pe-
+      echConfigSigning extension is present in the leaf, and verifies
+      the signature with the leaf key.  The not_after field MUST be set
+      to 0 (absent).
 
    Notes:
 
-   *  trusted_keys is only used by RPK; clients MUST ignore it for PKIX
-      and DNSSEC.
+   *  trusted_keys is only used by RPK; clients MUST ignore it for PKIX.
 
    *  If method is rpk(1), trusted_keys MUST contain at least one SPKI
       hash; otherwise it MUST be zero-length.
@@ -567,21 +528,11 @@ struct {
       it out-of-band or via an update.)
 
    *  If method is pkix(2), the server must have a valid certificate
-      (and chain) for the public name with the ECH configuration signing
-      EKU (Section IANA Considerations (Section 9) defines the EKU)
-      available at runtime to use for signing.  The certificate's public
-      key algorithm dictates what signature algorithms are possible.
-
-   *  If method is dnssec(3), the server must have access to DNSSEC
-      signing infrastructure for the zone (or a way to obtain fresh DNS
-      records).  In practice, the server might simply fetch its own DNS
-      record and include the proof if it knows the zone is signed and it
-      has the ability to get the RRSIG and DNSKEY; or an operator might
-      provision a service to provide the needed DNSSEC blobs.  The
-      specifics are out of scope of this document, but the server should
-      only use this method if it can produce a timely proof.  (Including
-      stale or incorrect DNSSEC data in an update will cause clients to
-      ignore the update.)
+      (and chain) for the public name with the critical id-pe-
+      echConfigSigning extension (Section IANA Considerations
+      (Section 9) defines the extension) available at runtime to use for
+      signing.  The certificate's public key algorithm dictates what
+      signature algorithms are possible.
 
 5.2.  TLS Extensions for ECH Config Update
 
@@ -615,8 +566,8 @@ struct {
    *  Using the authentication method specified in the ECHConfig's
       ech_auth.method
 
-   *  Creating the appropriate authenticator (RPK signature, PKIX
-      certificate chain, or DNSSEC proof)
+   *  Creating the appropriate authenticator (RPK signature or PKIX
+      certificate chain)
 
    *  Including the authenticator in the ECHConfig's ech_auth.signature
       field
@@ -628,7 +579,7 @@ struct {
    When a client retrieves an ECHConfig (e.g., from DNS), it examines
    the ech_auth extension and records:
 
-   *  The authentication method (RPK, PKIX, or DNSSEC)
+   *  The authentication method (RPK or PKIX)
 
    *  Any trusted_keys for RPK validation
 
@@ -645,17 +596,15 @@ struct {
 
        *  PKIX: Validates the certificate chain, verifies the leaf
           certificate covers the ECHConfig's public_name, checks for the
-          ECH signing EKU, then verifies the signature
-
-       *  DNSSEC: Validates that the DNSKEY corresponds to the
-          public_name's zone, validates the DNSSEC chain, then verifies
-          the signature
+          critical id-pe-echConfigSigning extension, then verifies the
+          signature
 
    2.  Validity Checking: The client checks temporal validity:
 
-       *  For RPK/DNSSEC: Verifies current time is before not_after
+       *  For RPK: Verifies current time is before not_after
 
-       *  For PKIX: Verifies certificate validity period
+       *  For PKIX: Verifies certificate validity period (the not_after
+          field MUST be 0)
 
    3.  Installation and Retry (see Appendix A for state diagram):
 
@@ -698,32 +647,6 @@ struct {
    authentication extensions.  Servers that do not implement this
    specification send unauthenticated retry_configs as usual.
 
-5.2.5.  Public Name Authentication for Pinned Keys
-
-   When a server rejects ECH and continues with the outer handshake, it
-   normally must present a certificate valid for the public name.  This
-   specification allows the use of pinned keys as an alternative to CA-
-   issued certificates.
-
-   If the ECHConfig's ech_auth.method is RPK and trusted_keys contains
-   SPKI hashes:
-
-   1.  The server MAY present a certificate whose public key's SPKI hash
-       matches one in trusted_keys
-
-   2.  The client computes the SPKI hash of the leaf certificate and
-       checks for a match
-
-   3.  If matched and the handshake completes (proving possession via
-       CertificateVerify), the client MAY accept the server's identity
-       for the public name
-
-   4.  The client MUST still treat the connection as not authenticated
-       for the inner origin
-
-   5.  The connection is used solely to deliver the authenticated
-       ECHConfig for retry
-
 6.  Example Exchange
 
 6.1.  Initial Setup
@@ -752,7 +675,8 @@ struct {
 
        *  Selects PKIX method for signing
 
-       *  Signs the update with certificate having ECH signing EKU
+       *  Signs the update with certificate containing the critical id-
+          pe-echConfigSigning extension
 
    3.  Server response:
 
@@ -768,7 +692,7 @@ struct {
 
        *  Verifies ECH acceptance
 
-       *  Validates PKIX certificate chain and EKU
+       *  Validates PKIX certificate chain and critical extension
 
        *  Verifies signature over ECHConfig
 
@@ -784,7 +708,7 @@ struct {
 
        *  Sends authenticated ECHConfig in EncryptedExtensions
 
-       *  Uses certificate for ech.example.net or pinned key
+       *  Uses certificate for ech.example.net
 
    4.  Client recovery:
 
@@ -816,20 +740,20 @@ struct {
    malicious initial configuration, they may be able to pin their own
    keys in the trusted_keys field, enabling persistent interception.
 
-   When ECHConfigs are obtained via DNS without DNSSEC validation, an
-   on-path attacker could provide a fake ECHConfig with the attacker's
-   key in trusted_keys.  While the attacker cannot decrypt ECH-protected
-   connections, they could cause ECH to fail and then present their own
-   certificate during fallback, potentially tricking the client into
-   accepting and caching a compromised configuration.  Clients SHOULD
-   prefer authenticated bootstrap mechanisms when available.
+   When ECHConfigs are obtained via DNS, an on-path attacker could
+   provide a fake ECHConfig with the attacker's key in trusted_keys.
+   While the attacker cannot decrypt ECH-protected connections, they
+   could cause ECH to fail and then present their own certificate during
+   fallback, potentially tricking the client into accepting and caching
+   a compromised configuration.  Clients SHOULD prefer authenticated
+   bootstrap mechanisms when available.
 
-   DNSSEC-validated DNS records provide strong initial trust, as an
-   attacker cannot forge configurations without compromising the DNSSEC
-   infrastructure.  Similarly, ECHConfigs obtained via HTTPS from a
-   well-known URI benefit from Web PKI authentication.  Pre-configured
-   ECHConfigs in applications derive their trust from the application's
-   distribution channel.
+   Initial retrieval of ECHConfigList via DNS is unchanged by this
+   mechanism.  This specification authenticates updates in-band via RPK
+   or PKIX; it does not attempt to authenticate the initial DNS fetch.
+   ECHConfigs obtained via HTTPS from a well-known URI benefit from Web
+   PKI authentication.  Pre-configured ECHConfigs in applications derive
+   their trust from the application's distribution channel.
 
 7.2.2.  Handshake Integrity
 
@@ -854,14 +778,13 @@ struct {
    SignatureScheme registry, such as Ed25519, ECDSA, or RSA-PSS.  Weak
    schemes like RSA PKCS#1 v1.5 SHOULD NOT be used.
 
-   The inclusion of not_after timestamps (for RPK and DNSSEC) or
-   certificate validity periods (for PKIX) ensures configuration
-   freshness.  These temporal bounds prevent clients from accepting
-   stale configurations that might use compromised keys or outdated
-   parameters.  Clients MUST verify these temporal constraints and
-   reject expired configurations.  Note that these mechanisms depend on
-   reasonably synchronized clocks (within 5 minutes of actual time is
-   RECOMMENDED).
+   The inclusion of not_after timestamps (for RPK) or certificate
+   validity periods (for PKIX) ensures configuration freshness.  These
+   temporal bounds prevent clients from accepting stale configurations
+   that might use compromised keys or outdated parameters.  Clients MUST
+   verify these temporal constraints and reject expired configurations.
+   Note that these mechanisms depend on reasonably synchronized clocks
+   (within 5 minutes of actual time is RECOMMENDED).
 
    Note that signed ECHConfigs themselves are replayable - an attacker
    could capture and resend a valid signed configuration.  However, this
@@ -881,16 +804,15 @@ struct {
 
    For PKIX-based updates, normal certificate lifecycle management
    applies.  Servers SHOULD obtain new certificates before existing ones
-   expire and MAY include the new certificate's key hash in trusted_keys
-   to enable smooth transitions.
+   expire.
 
    For PKIX authentication, this specification leverages existing CA
    infrastructure including revocation mechanisms.  A compromised ECH
    signing certificate could be used to sign malicious updates, but this
-   risk is mitigated by the certificate's constraints (specific EKU and
-   name binding) and standard revocation mechanisms (OCSP/CRL).  Clients
-   SHOULD apply the same revocation checks to ECH signing certificates
-   as they do for TLS server certificates.
+   risk is mitigated by the certificate's constraints (critical
+   extension and name binding) and standard revocation mechanisms (OCSP/
+   CRL).  Clients SHOULD apply the same revocation checks to ECH signing
+   certificates as they do for TLS server certificates.
 
 7.4.  Implementation Vulnerabilities
 
@@ -908,7 +830,7 @@ struct {
    client SHOULD NOT proceed with the connection using the outer SNI for
    application data, as this would violate ECH's privacy goals.  The
    client MAY attempt to obtain a valid configuration through other
-   means (such as DNS with DNSSEC) or treat the connection as failed.
+   means (such as DNS) or treat the connection as failed.
 
    Servers MAY include multiple ECHConfigs with different authentication
    methods to maximize the probability of successful verification.
@@ -924,26 +846,19 @@ struct {
    use of outdated configurations, it prevents compromise of the ECH
    mechanism itself.
 
-   DNSSEC authentication relies on the security of the DNS hierarchy.
-   Implementations MUST properly validate the entire DNSSEC chain from
-   the ECHConfig's zone to a trusted anchor.  If the validation chain
-   cannot be completed, the update MUST be rejected.
-
    Algorithm agility is provided through the TLS SignatureScheme
-   registry for RPK, standard PKIX certificate algorithms, and DNSSEC's
-   algorithm negotiation mechanisms.  Implementations SHOULD support
-   commonly deployed algorithms and MUST be able to handle algorithm
-   transitions.
+   registry for RPK and standard PKIX certificate algorithms.
+   Implementations SHOULD support commonly deployed algorithms and MUST
+   be able to handle algorithm transitions.
 
 7.4.2.  Denial of Service Considerations
 
-   Signature verification introduces computational costs, particularly
-   for DNSSEC validation.  However, these operations occur only during
-   ECH configuration updates, not on every connection.  The additional
-   data in EncryptedExtensions (certificates or DNSSEC records) may
-   increase message sizes, potentially causing fragmentation in some
-   scenarios.  Implementations SHOULD be aware of message size limits,
-   particularly in QUIC deployments.
+   Signature verification introduces computational costs.  However,
+   these operations occur only during ECH configuration updates, not on
+   every connection.  The additional data in EncryptedExtensions
+   (certificates) may increase message sizes, potentially causing
+   fragmentation in some scenarios.  Implementations SHOULD be aware of
+   message size limits, particularly in QUIC deployments.
 
    Attackers cannot force servers to send signed ECHConfigs without
    establishing TLS connections.  Standard TLS denial-of-service
@@ -969,11 +884,6 @@ struct {
    particular public name, not the intended destination behind that
    name.
 
-   The use of DNSSEC authentication may trigger additional DNS queries
-   for validation, but these queries reveal no more information than the
-   initial ECH configuration fetch.  Clients using validating resolvers
-   avoid additional on-wire queries entirely.
-
    This specification introduces no new tracking mechanisms or
    identifiers beyond those already present in TLS and DNS.
 
@@ -993,45 +903,44 @@ struct {
 
    *  Reference: This document
 
-9.2.  Extended Key Usage OID
+9.2.  X.509 Certificate Extension OID
 
-   IANA is requested to allocate a new OID in the "SMI Security for PKIX
-   Extended Key Purpose" registry:
+   IANA is requested to allocate an object identifier (OID) under the
+   "SMI Security for PKIX Certificate Extensions (1.3.6.1.5.5.7.1)"
+   registry with the following values:
 
-   *  OID: 1.3.6.1.5.5.7.3.TBD2
+   *  OID: id-pe-echConfigSigning (1.3.6.1.5.5.7.1.TBD2)
 
-   *  Description: id-kp-echConfigSigning
+   *  Name: ECH Configuration Signing
 
-   *  Purpose: ECH Configuration Signing
+   *  Description: Indicates that the certificate's subject public key
+      is authorized to sign ECH configuration updates for the DNS names
+      in the certificate's Subject Alternative Name (SAN).
 
-   *  Reference: This document
+   *  Criticality: Certificates containing this extension MUST mark it
+      critical.
 
-   Certificates containing this EKU are authorized to sign ECH
-   configuration updates for the names in the certificate's SAN field.
+   *  Reference: This document.
 
 9.3.  ECH Authentication Methods Registry
 
    IANA is requested to establish a new registry called "ECH
    Authentication Methods" with the following initial values:
 
-   +=======+============+=============================+===============+
-   | Value | Method     | Description                 | Reference     |
-   +=======+============+=============================+===============+
-   | 0     | Reserved   | Not used                    | This document |
-   +-------+------------+-----------------------------+---------------+
-   | 1     | RPK        | Raw Public Key (pinned key) | This document |
-   +-------+------------+-----------------------------+---------------+
-   | 2     | PKIX       | X.509 Certificate           | This document |
-   +-------+------------+-----------------------------+---------------+
-   | 3     | DNSSEC     | DNSSEC Authentication       | This document |
-   +-------+------------+-----------------------------+---------------+
-   | 4     | Reserved   | Reserved for future use     | This document |
-   +-------+------------+-----------------------------+---------------+
-   | 5-255 | Unassigned | Available for future        | -             |
-   |       |            | assignment                  |               |
-   +-------+------------+-----------------------------+---------------+
+      +=======+============+========================+===============+
+      | Value | Method     | Description            | Reference     |
+      +=======+============+========================+===============+
+      | 0     | Reserved   | Not used               | This document |
+      +-------+------------+------------------------+---------------+
+      | 1     | RPK        | Raw Public Key         | This document |
+      +-------+------------+------------------------+---------------+
+      | 2     | PKIX       | X.509 with critical    | This document |
+      |       |            | id-pe-echConfigSigning |               |
+      +-------+------------+------------------------+---------------+
+      | 3-255 | Unassigned | -                      | -             |
+      +-------+------------+------------------------+---------------+
 
-                                 Table 1
+                                  Table 1
 
    New values are assigned via IETF Review.
 
@@ -1040,16 +949,18 @@ struct {
 10.1.  Method Selection
 
    Operators SHOULD support at least one widely implemented method.
-   PKIX provides broad compatibility with existing PKI infrastructure.
-   DNSSEC leverages DNS security.  RPK offers operational independence
-   but requires careful pin lifecycle management.
+   PKIX (critical extension) provides easier operational deployment with
+   standard certificate issuance workflows and no client pin state.  RPK
+   offers small artifacts and simple verification; any client-side state
+   is bounded to the lifetime of the current ECHConfig and a single
+   authenticated retry per connection attempt.
 
 10.2.  Size Considerations
 
    When sending authenticated ECHConfigs in HelloRetryRequest, servers
    should be mindful of message size to avoid fragmentation or exceeding
    anti-amplification limits.  RPK signatures are typically more compact
-   than PKIX certificate chains or DNSSEC proofs.
+   than PKIX certificate chains.
 
 10.3.  Key Rotation
 
@@ -1067,8 +978,8 @@ struct {
    *  Remove compromised pins via authenticated updates signed by
       remaining trusted keys
 
-   *  Consider using PKIX or DNSSEC to re-establish trust if all pinned
-      keys are compromised
+   *  Consider using PKIX to re-establish trust if all pinned keys are
+      compromised
 
 10.5.  Update Consistency
 
@@ -1076,7 +987,12 @@ struct {
    consistency to avoid client confusion.  When possible, send updates
    in only one location per handshake.
 
-11.  Normative References
+11.  Acknowledgments
+
+   The authors thank Martin Thomson for earlier contributions and
+   discussions on the initial draft.
+
+12.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -1100,21 +1016,6 @@ struct {
               Resource Records)", RFC 9460, DOI 10.17487/RFC9460,
               November 2023, <https://www.rfc-editor.org/info/rfc9460>.
 
-   [RFC4033]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
-              Rose, "DNS Security Introduction and Requirements",
-              RFC 4033, DOI 10.17487/RFC4033, March 2005,
-              <https://www.rfc-editor.org/info/rfc4033>.
-
-   [RFC4034]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
-              Rose, "Resource Records for the DNS Security Extensions",
-              RFC 4034, DOI 10.17487/RFC4034, March 2005,
-              <https://www.rfc-editor.org/info/rfc4034>.
-
-   [RFC4035]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
-              Rose, "Protocol Modifications for the DNS Security
-              Extensions", RFC 4035, DOI 10.17487/RFC4035, March 2005,
-              <https://www.rfc-editor.org/info/rfc4035>.
-
    [I-D.ietf-tls-esni]
               Rescorla, E., Oku, K., Sullivan, N., and C. A. Wood, "TLS
               Encrypted Client Hello", Work in Progress, Internet-Draft,
@@ -1132,18 +1033,14 @@ struct {
    [I-D.ietf-tls-wkech]
               Farrell, S., Salz, R., and B. M. Schwartz, "A well-known
               URI for publishing service parameters", Work in Progress,
-              Internet-Draft, draft-ietf-tls-wkech-09, 2 September 2025,
+              Internet-Draft, draft-ietf-tls-wkech-10, 19 October 2025,
               <https://datatracker.ietf.org/doc/html/draft-ietf-tls-
-              wkech-09>.
+              wkech-10>.
 
 Authors' Addresses
 
    Nick Sullivan
    Cryptography Consulting LLC
-
-
-   Martin Thomson
-   Mozilla
 
 
    Dennis Jackson
