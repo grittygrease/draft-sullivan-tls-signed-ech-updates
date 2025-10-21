@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2025-10-19T00:17:09.191887+00:00",
+  "timestamp": "2025-10-21T00:15:37.260047+00:00",
   "repo": "grittygrease/draft-sullivan-tls-signed-ech-updates",
   "labels": [
     {
@@ -50,5 +50,34 @@
     }
   ],
   "issues": [],
-  "pulls": []
+  "pulls": [
+    {
+      "number": 1,
+      "id": "PR_kwDOP0xIIc6uuCkC",
+      "title": "Signed ECH updates: RPK (stateless), PKIX via critical extension, no DNSSEC",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-signed-ech-updates/pull/1",
+      "state": "MERGED",
+      "author": "grittygrease",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "## Signed ECH updates: RPK (stateless), PKIX via critical extension, no DNSSEC\r\n\r\nThis PR implements comprehensive spec changes to simplify and refine the authenticated ECH configuration update mechanism.\r\n\r\n### Summary of Changes\r\n\r\n1. **Removed DNSSEC authentication method entirely**\r\n   - Deleted Section 3.3 (DNSSEC)\r\n   - Removed from ECHAuthMethod enum\r\n   - Removed all DNSSEC-related normative references (RFC 4033/4034/4035)\r\n   - Updated all method lists from \"RPK, PKIX, or DNSSEC\" to \"RPK or PKIX\"\r\n\r\n2. **Made RPK state per-ECHConfig (stateless)**\r\n   - No long-term pinning\r\n   - No public-name authentication via pins\r\n   - Deleted Section 5.2.5 \"Public Name Authentication for Pinned Keys\"\r\n   - Deleted Section 10.4 \"Pin Management\"\r\n   - RPK state is only valid for the lifetime of the associated ECHConfig\r\n\r\n3. **Replaced PKIX EKU with critical X.509 extension**\r\n   - Changed from Extended Key Usage to critical certificate extension\r\n   - New OID: `id-pe-echConfigSigning` (1.3.6.1.5.5.7.1.TBD2)\r\n   - Certificates with this extension MUST NOT be used for TLS server auth\r\n   - Updated IANA section from \"Extended Key Usage OID\" to \"X.509 Certificate Extension OID\"\r\n\r\n4. **Clarified temporal requirements**\r\n   - RPK: `not_after` is REQUIRED and MUST be > current time\r\n   - PKIX: `not_after` MUST be 0 (absent)\r\n\r\n5. **Updated registries and examples**\r\n   - ECH Authentication Methods Registry now only has RPK and PKIX\r\n   - All examples updated to use critical extension instead of EKU\r\n   - Deployment guidance updated for the two methods\r\n\r\n6. **Editorial changes**\r\n   - Removed Martin Thomson from authors (added to acknowledgments)\r\n   - Added note that initial DNS fetch is not authenticated by this mechanism\r\n",
+      "createdAt": "2025-10-20T21:57:56Z",
+      "updatedAt": "2025-10-20T22:11:56Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-signed-ech-updates",
+      "baseRefName": "main",
+      "baseRefOid": "a014608bffb07fff0a2d1358e12fa567f4b3b754",
+      "headRepository": "grittygrease/draft-sullivan-tls-signed-ech-updates",
+      "headRefName": "signed-ech-updates/rpk-stateless-pkix-ext-no-dnssec",
+      "headRefOid": "580811a6b12039429dcdb483b12eedabe35885ee",
+      "closedAt": "2025-10-20T22:11:56Z",
+      "mergedAt": "2025-10-20T22:11:56Z",
+      "mergedBy": "grittygrease",
+      "mergeCommit": {
+        "oid": "3e94878acebe2b66644753db72fb6a8a4cd3b992"
+      },
+      "comments": [],
+      "reviews": []
+    }
+  ]
 }
