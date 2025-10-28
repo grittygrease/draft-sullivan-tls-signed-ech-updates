@@ -44,7 +44,7 @@ venue:
 
 Encrypted ClientHello (ECH) requires clients to have the server's ECH configuration before connecting. Currently, when ECH fails, servers can send updated configurations but clients cannot authenticate them unless the server has a valid certificate for the public name, limiting deployment flexibility.
 
-This document specifies a new mechanism for authenticating ECH configurations. Servers include additional information in their initial ECH configurations, which enables clients to authenticate any updated configurations without relying on a valid certificate for the public name.
+This document specifies a new mechanism for authenticating ECH configurations. Servers include additional information in their initial ECH configurations, which enables clients to authenticate updated configurations without relying on a valid certificate for the public name.
 
 --- middle
 
@@ -281,7 +281,7 @@ During the TLS handshake, upon receiving an ECHConfigList in EE:
      * The client MUST NOT use the retry_configs
      * The client terminates the connection without retry
 
-Note: Regardless of validation outcome in an ECH rejection, the client will terminate the current connection. The difference is whether it retries with the new configs (validation success) or treats it as a certificate validation failure (validation failure). Implementers should refer to the state diagram in Appendix A for the complete retry logic flow.
+Note: Regardless of validation outcome in an ECH rejection, the client will terminate the current connection. The difference is whether it retries with the new configs (validation success) or treats it as a certificate validation failure (validation failure).
 
 ### Backward Compatibility
 
@@ -330,7 +330,7 @@ ECHConfigs delivered in EncryptedExtensions are usually protected by TLS 1.3's h
 
 However, signed ECHConfigs don't benefit from this authentication because the client does not validate the server's certificate chain. Instead, the client verifies the ECHConfigs against the authenticator provided in the initial ECHConfig. This provides the same level of authenticity as checking the ECH Public Name would.
 
-he inclusion of `not_after` timestamps (for RPK) or certificate validity periods (for PKIX) ensures configuration freshness. These temporal bounds prevent clients from accepting stale configurations that might use compromised keys or otherwise parameters. ECH providers should use a window of 24 hours.
+The inclusion of `not_after` timestamps (for RPK) or certificate validity periods (for PKIX) ensures configuration freshness. These temporal bounds prevent clients from accepting stale configurations that might use compromised keys or otherwise parameters. ECH providers should use a window of 24 hours.
 
 ### Key Management
 
@@ -348,7 +348,7 @@ Algorithm agility is provided through the TLS SignatureScheme registry for RPK a
 
 ### Denial of Service Considerations
 
-The ECH Specification allows ECH Operators to decide which ECH extensions to attempt to decrypt based on the public ECHConfig ID advertised in the Client Hello and the public SNI name. This extension reduces the value of that signal, meaning that ECH operators will need to be willing to trial decrypt incoming ECH extensions. This is not a substantial burden, should be accounted for when provisioning these signed configs.
+The ECH Specification allows ECH Operators to decide which ECH extensions to attempt to decrypt based on the public ECHConfig ID advertised in the Client Hello and the public name. This extension reduces the value of thoses signals, depending on the ECH operator's chosen configurations, meaning that ECH operators may need to trial decrypt incoming ECH extensions.
 
 Attackers cannot force servers to send signed ECHConfigs without establishing TLS connections. Standard TLS denial-of-service mitigations (rate limiting, stateless cookies) apply equally to this mechanism.
 
