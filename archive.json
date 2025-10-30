@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2025-10-28T00:15:04.444540+00:00",
+  "timestamp": "2025-10-30T00:16:05.755917+00:00",
   "repo": "grittygrease/draft-sullivan-tls-signed-ech-updates",
   "labels": [
     {
@@ -76,6 +76,32 @@
       "mergeCommit": {
         "oid": "3e94878acebe2b66644753db72fb6a8a4cd3b992"
       },
+      "comments": [],
+      "reviews": []
+    },
+    {
+      "number": 2,
+      "id": "PR_kwDOP0xIIc6wNU2-",
+      "title": "General tidyup",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-signed-ech-updates/pull/2",
+      "state": "OPEN",
+      "author": "dennisjackson",
+      "authorAssociation": "NONE",
+      "assignees": [],
+      "labels": [],
+      "body": "* Finishes the removal of pinning \r\n* Splits the extension into two (one for initial ECHConfigs, one for retries) \r\n* Some other changes for clarity and brevity ",
+      "createdAt": "2025-10-28T18:16:48Z",
+      "updatedAt": "2025-10-28T23:06:16Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-signed-ech-updates",
+      "baseRefName": "main",
+      "baseRefOid": "f087bb675b4e2f2a477e0013816366a1563802e6",
+      "headRepository": "dennisjackson/draft-sullivan-tls-signed-ech-updates",
+      "headRefName": "tweaks",
+      "headRefOid": "a088611d89e0bf8f32d9a18612c064326dd0630e",
+      "closedAt": null,
+      "mergedAt": null,
+      "mergedBy": null,
+      "mergeCommit": null,
       "comments": [],
       "reviews": []
     }
