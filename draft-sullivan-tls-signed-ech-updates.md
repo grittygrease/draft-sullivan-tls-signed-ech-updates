@@ -91,7 +91,7 @@ ECHConfigList:
 : A sequence of one or more ECHConfig structures as defined in ECH (a byte string that starts with a 16-bit length and may contain multiple concatenated ECHConfig values).
 
 ECHConfigTBS (To-Be-Signed):
-: The serialized ECHConfig structure with the `ech_auth` extension, but with the `signature` field within `ech_auth` set to zero-length. This includes all ECHConfig fields and the `ech_auth` extension's `method` and `trusted_keys` fields.
+: The serialized ECHConfig structure with the `ech_auth` extension, but with the `signature` field within `ech_auth.signature` set to zero-length. This includes all ECHConfig fields and the `ech_auth` extension's `method` and `trusted_keys` fields.
 
 authenticated ECHConfig:
 : An ECHConfig that contains an `ech_auth` extension with a valid signature in the `signature` field, allowing clients to verify its authenticity.
@@ -211,8 +211,8 @@ The signature is computed over the concatenation:
 where:
 
 - `ECHConfigTBS` (To-Be-Signed) is the serialized ECHConfig structure including
-  the `ech_auth` extension, but with the `signature` field within `ech_auth`
-  set to zero-length. This means it includes:
+  the `ech_auth` extension, but with the `signature` field within `ech_auth.signature`
+  set to zero-length. This means `ECHConfigTBS` includes:
   - All ECHConfig base fields (version, length, contents, etc.)
   - All extensions including `ech_auth` (which MUST be last)
   - Within `ech_auth`: the `method`, `trusted_keys`, and the authenticator/
@@ -223,7 +223,7 @@ where:
 - All multi-byte values use network byte order (big-endian)
 - The serialization follows TLS 1.3 presentation language rules from RFC 8446
 
-Including a fixed, scheme-specific context label prevents cross-protocol reuse; covering the to-be-signed ECHConfig and all `ech_auth` fields (except the signature itself) ensures integrity of parameters and pins. The `not_after` timestamp provides freshness by bounding the configuration's validity period.
+Including a fixed, scheme-specific context label prevents cross-protocol reuse; covering the to-be-signed ECHConfig and all `ech_auth` fields (except the `signature.signature` itself) ensures integrity of parameters and pins. The `not_after` timestamp provides freshness by bounding the configuration's validity period.
 
 Method-specific `authenticator`:
 
