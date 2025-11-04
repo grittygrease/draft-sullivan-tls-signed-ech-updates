@@ -174,7 +174,7 @@ The `ech_auth` and`ech_authinfo` extensions have the following structure:
     // For now, implementations MUST use sha256(4). Future specs may allow others.
     opaque SPKIHash<32..32>;  // SHA-256 hash of DER-encoded SPKI
 
-struct {
+    struct {
       ECHAuthMethod method;              // Single authentication method
       SPKIHash trusted_keys<0..2^16-1>;  // RPK-only; SHA-256 hashes per IANA TLS
     } ECHAuthInfo;
