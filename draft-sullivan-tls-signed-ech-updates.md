@@ -183,7 +183,7 @@ The `ech_auth` extension has the following structure:
     // For now, implementations MUST use sha256(4). Future specs may allow others.
     opaque SPKIHash<32..32>;  // SHA-256 hash of DER-encoded SPKI
 
-struct {
+    struct {
       ECHAuthMethod method;              // Single authentication method
       SPKIHash trusted_keys<0..2^16-1>;  // RPK-only; SHA-256 hashes per IANA TLS
                                           // HashAlgorithm registry value 4;
@@ -192,11 +192,11 @@ struct {
       // Optional signed authenticator. Present when the sender wishes
       // to provide a signed ECHConfig (e.g., in TLS retry_configs, or
       // pre-signed in DNS).
-struct {
+      struct {
         opaque authenticator<1..2^16-1>; // method-specific material (see below)
         uint64 not_after;                 // Unix timestamp; used by RPK;
                                           // MUST be 0 for PKIX
-SignatureScheme algorithm;
+        SignatureScheme algorithm;
         opaque signature<1..2^16-1>;
       } signature;                        // Optional; zero-length if not present
     } ECHAuth;
