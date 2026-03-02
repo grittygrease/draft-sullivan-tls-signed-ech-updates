@@ -1296,13 +1296,16 @@ svg :is([fill="white"], [fill^="#fff"]) {
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
-            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
-            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+            <p id="section-toc.1-1.12.1"><a href="#appendix-A" class="auto internal xref">Appendix A</a>.  <a href="#name-client-retry-state-diagram" class="internal xref">Client Retry State Diagram</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
-            <p id="section-toc.1-1.13.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+            <p id="section-toc.1-1.13.1"><a href="#appendix-B" class="auto internal xref">Appendix B</a>.  <a href="#name-acknowledgments" class="internal xref">Acknowledgments</a></p>
+</li>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#appendix-C" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
 </li>
         </ul>
 </nav>
@@ -2005,18 +2008,10 @@ to_be_signed = context_label || ECHConfigTBS
 </div>
 </section>
 </div>
-<div id="acknowledgments">
-<section id="section-11">
-      <h2 id="name-acknowledgments">
-<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
-      </h2>
-<p id="section-11-1">The authors thank Martin Thomson for earlier contributions and discussions on the initial draft.<a href="#section-11-1" class="pilcrow">¶</a></p>
-</section>
-</div>
 <div id="sec-normative-references">
-<section id="section-12">
+<section id="section-11">
       <h2 id="name-normative-references">
-<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
       </h2>
 <dl class="references">
 <dt id="RFC2119">[RFC2119]</dt>
@@ -2058,8 +2053,78 @@ to_be_signed = context_label || ECHConfigTBS
 </dl>
 </section>
 </div>
-<div id="authors-addresses">
+<div id="appendix-a">
 <section id="appendix-A">
+      <h2 id="name-client-retry-state-diagram">
+<a href="#appendix-A" class="section-number selfRef">Appendix A. </a><a href="#name-client-retry-state-diagram" class="section-name selfRef">Client Retry State Diagram</a>
+      </h2>
+<p id="appendix-A-1">The following diagram shows client behavior upon receiving
+retry_configs in EncryptedExtensions.  "ech_auth" refers to the
+authentication extension within the delivered ECHConfig.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+<span id="name-client-retry-state-diagram-2"></span><div id="fig-retry">
+<figure id="figure-1">
+        <div class="alignLeft art-text artwork" id="appendix-A-2.1">
+<pre>
+    Receive retry_configs in EE
+                |
+                v
+      +-------------------+
+      | ech_auth present? |
+      +-------------------+
+         |             |
+        yes            no
+         |             |
+         v             v
+    +-----------+   Process per base
+    | Validate  |   ECH spec (no
+    | ech_auth  |   authentication)
+    +-----------+
+         |
+    +----+----+
+    |         |
+  valid    invalid
+    |         |
+    v         v
+  +-----+  Treat as certificate
+  | ECH |  validation failure;
+  | out |  terminate connection;
+  | come|  do not retry.
+  | ?   |
+  +-----+
+    |    \
+ rejected  accepted
+    |        \
+    v         v
+  +--------+ Continue handshake
+  |Config  | normally (no change
+  |empty?  | to ECH spec).
+  +--------+
+    |     \
+   no     yes (zero-length)
+    |       \
+    v        v
+  Terminate  Terminate connection;
+  connection; MUST NOT attempt ECH
+  retry with  on retry; SHOULD
+  new config. clear cached config.
+</pre>
+</div>
+<figcaption><a href="#figure-1" class="selfRef">Figure 1</a>:
+<a href="#name-client-retry-state-diagram-2" class="selfRef">Client Retry State Diagram</a>
+        </figcaption></figure>
+</div>
+</section>
+</div>
+<div id="acknowledgments">
+<section id="appendix-B">
+      <h2 id="name-acknowledgments">
+<a href="#appendix-B" class="section-number selfRef">Appendix B. </a><a href="#name-acknowledgments" class="section-name selfRef">Acknowledgments</a>
+      </h2>
+<p id="appendix-B-1">The authors thank Martin Thomson for earlier contributions and discussions on the initial draft.<a href="#appendix-B-1" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="authors-addresses">
+<section id="appendix-C">
       <h2 id="name-authors-addresses">
 <a href="#name-authors-addresses" class="section-name selfRef">Authors' Addresses</a>
       </h2>

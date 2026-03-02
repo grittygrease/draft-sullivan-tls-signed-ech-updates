@@ -111,8 +111,9 @@ Table of Contents
      10.1.  Method Selection
      10.2.  Size Considerations
      10.3.  Key Rotation
-   11. Acknowledgments
-   12. Normative References
+   11. Normative References
+   Appendix A.  Client Retry State Diagram
+   Appendix B.  Acknowledgments
    Authors' Addresses
 
 1.  Introduction
@@ -796,12 +797,7 @@ struct {
    appropriate validity periods for each method.  Consider overlapping
    validity windows to allow graceful client migration.
 
-11.  Acknowledgments
-
-   The authors thank Martin Thomson for earlier contributions and
-   discussions on the initial draft.
-
-12.  Normative References
+11.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -851,6 +847,62 @@ struct {
               Internet-Draft, draft-ietf-tls-wkech-11, 3 November 2025,
               <https://datatracker.ietf.org/doc/html/draft-ietf-tls-
               wkech-11>.
+
+Appendix A.  Client Retry State Diagram
+
+   The following diagram shows client behavior upon receiving
+   retry_configs in EncryptedExtensions.  "ech_auth" refers to the
+   authentication extension within the delivered ECHConfig.
+
+       Receive retry_configs in EE
+                   |
+                   v
+         +-------------------+
+         | ech_auth present? |
+         +-------------------+
+            |             |
+           yes            no
+            |             |
+            v             v
+       +-----------+   Process per base
+       | Validate  |   ECH spec (no
+       | ech_auth  |   authentication)
+       +-----------+
+            |
+       +----+----+
+       |         |
+     valid    invalid
+       |         |
+       v         v
+     +-----+  Treat as certificate
+     | ECH |  validation failure;
+     | out |  terminate connection;
+     | come|  do not retry.
+     | ?   |
+     +-----+
+       |    \
+    rejected  accepted
+       |        \
+       v         v
+     +--------+ Continue handshake
+     |Config  | normally (no change
+     |empty?  | to ECH spec).
+     +--------+
+       |     \
+      no     yes (zero-length)
+       |       \
+       v        v
+     Terminate  Terminate connection;
+     connection; MUST NOT attempt ECH
+     retry with  on retry; SHOULD
+     new config. clear cached config.
+
+                    Figure 1: Client Retry State Diagram
+
+Appendix B.  Acknowledgments
+
+   The authors thank Martin Thomson for earlier contributions and
+   discussions on the initial draft.
 
 Authors' Addresses
 
