@@ -1439,22 +1439,19 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <a href="#section-3.2" class="section-number selfRef">3.2. </a><a href="#name-pkix-certificate-based" class="section-name selfRef">PKIX (Certificate-Based)</a>
         </h3>
 <p id="section-3.2-1">The update is signed with the private key corresponding to an X.509 certificate that chains to a client trusted root and is valid for the ECHConfig <code>public_name</code> (i.e., appears in the certificate's SAN).<a href="#section-3.2-1" class="pilcrow">¶</a></p>
-<p id="section-3.2-2">The leaf certificate MUST include a new, critical X.509 v3 extension <code>id-pe-echConfigSigning</code> (OID: TBD) whose presence indicates authorization to sign ECH configuration updates for the DNS names in the certificate's SAN. Clients:<a href="#section-3.2-2" class="pilcrow">¶</a></p>
+<p id="section-3.2-2">The leaf certificate MUST include a new, critical X.509 v3 extension <code>id-pe-echConfigSigning</code> (OID: TBD) whose presence indicates authorization to sign ECH configuration updates for the DNS names in the certificate's SAN. Clients MUST perform standard X.509 certificate validation per <span>[<a href="#RFC5280" class="cite xref">RFC5280</a>], <a href="https://rfc-editor.org/rfc/rfc5280#section-6" class="relref">Section 6</a></span> and additionally:<a href="#section-3.2-2" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-3.2-3.1">
-            <p id="section-3.2-3.1.1">MUST validate the certificate chain according to local policy;<a href="#section-3.2-3.1.1" class="pilcrow">¶</a></p>
+            <p id="section-3.2-3.1.1">MUST confirm the SAN covers the ECHConfig <code>public_name</code>;<a href="#section-3.2-3.1.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.2-3.2">
-            <p id="section-3.2-3.2.1">MUST confirm the SAN covers the ECHConfig <code>public_name</code>;<a href="#section-3.2-3.2.1" class="pilcrow">¶</a></p>
+            <p id="section-3.2-3.2.1">MUST confirm the critical <code>id-pe-echConfigSigning</code> extension is present in the leaf;<a href="#section-3.2-3.2.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.2-3.3">
-            <p id="section-3.2-3.3.1">MUST confirm the critical <code>id-pe-echConfigSigning</code> extension is present in the leaf; and<a href="#section-3.2-3.3.1" class="pilcrow">¶</a></p>
+            <p id="section-3.2-3.3.1">MUST verify the ECH signature with the leaf key; and<a href="#section-3.2-3.3.1" class="pilcrow">¶</a></p>
 </li>
           <li class="normal" id="section-3.2-3.4">
-            <p id="section-3.2-3.4.1">MUST verify the ECH signature with the leaf key.<a href="#section-3.2-3.4.1" class="pilcrow">¶</a></p>
-</li>
-          <li class="normal" id="section-3.2-3.5">
-            <p id="section-3.2-3.5.1">MUST verify that the <code>not_after</code> field in <code>ech_auth.signature</code> is strictly greater than the client's current time.<a href="#section-3.2-3.5.1" class="pilcrow">¶</a></p>
+            <p id="section-3.2-3.4.1">MUST verify that the <code>not_after</code> field in <code>ech_auth</code> is strictly greater than the client's current time.<a href="#section-3.2-3.4.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 <p id="section-3.2-4">When this critical extension is present, clients MUST NOT accept the certificate for TLS server authentication. The use of the critical bit ensures that even clients who are unaware of the extension will not accept it for TLS server authentication.<a href="#section-3.2-4" class="pilcrow">¶</a></p>
@@ -2025,6 +2022,10 @@ to_be_signed = context_label || ECHConfigTBS
 <dt id="RFC2119">[RFC2119]</dt>
       <dd>
 <span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="RFC5280">[RFC5280]</dt>
+      <dd>
+<span class="refAuthor">Cooper, D.</span>, <span class="refAuthor">Santesson, S.</span>, <span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Boeyen, S.</span>, <span class="refAuthor">Housley, R.</span>, and <span class="refAuthor">W. Polk</span>, <span class="refTitle">"Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile"</span>, <span class="seriesInfo">RFC 5280</span>, <span class="seriesInfo">DOI 10.17487/RFC5280</span>, <time datetime="2008-05" class="refDate">May 2008</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc5280">https://www.rfc-editor.org/info/rfc5280</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC8174">[RFC8174]</dt>
       <dd>

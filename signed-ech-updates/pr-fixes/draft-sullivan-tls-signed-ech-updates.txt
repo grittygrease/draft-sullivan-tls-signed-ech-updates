@@ -283,19 +283,18 @@ Table of Contents
    The leaf certificate MUST include a new, critical X.509 v3 extension
    id-pe-echConfigSigning (OID: TBD) whose presence indicates
    authorization to sign ECH configuration updates for the DNS names in
-   the certificate's SAN.  Clients:
-
-   *  MUST validate the certificate chain according to local policy;
+   the certificate's SAN.  Clients MUST perform standard X.509
+   certificate validation per [RFC5280], Section 6 and additionally:
 
    *  MUST confirm the SAN covers the ECHConfig public_name;
 
    *  MUST confirm the critical id-pe-echConfigSigning extension is
-      present in the leaf; and
+      present in the leaf;
 
-   *  MUST verify the ECH signature with the leaf key.
+   *  MUST verify the ECH signature with the leaf key; and
 
-   *  MUST verify that the not_after field in ech_auth.signature is
-      strictly greater than the client's current time.
+   *  MUST verify that the not_after field in ech_auth is strictly
+      greater than the client's current time.
 
    When this critical extension is present, clients MUST NOT accept the
    certificate for TLS server authentication.  The use of the critical
@@ -808,6 +807,12 @@ struct {
               Requirement Levels", BCP 14, RFC 2119,
               DOI 10.17487/RFC2119, March 1997,
               <https://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC5280]  Cooper, D., Santesson, S., Farrell, S., Boeyen, S.,
+              Housley, R., and W. Polk, "Internet X.509 Public Key
+              Infrastructure Certificate and Certificate Revocation List
+              (CRL) Profile", RFC 5280, DOI 10.17487/RFC5280, May 2008,
+              <https://www.rfc-editor.org/info/rfc5280>.
 
    [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
