@@ -1498,7 +1498,7 @@ svg :is([fill="white"], [fill^="#fff"]) {
 <a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-ech-authentication-extensio" class="section-name selfRef">ECH authentication extensions (<code>ech_auth</code> and <code>ech_authinfo</code>)</a>
         </h3>
 <p id="section-5.1-1">The information for authenticating retry configs is carried as an ECHConfig extension (<code>ech_authinfo</code>) inside the ECHConfig structure and conveys authentication policy. ECH Retry Configs include an <code>ech_auth</code> extension which includes signed authenticator that allows clients to verify the provided config independently of the TLS handshake.<a href="#section-5.1-1" class="pilcrow">¶</a></p>
-<p id="section-5.1-2">The <code>ech_auth</code> extension MUST be the last extension in the ECHConfig's extension list. This ensures that the signature in the extension covers all other extensions in the ECHConfigTBS. Implementations MUST place this extension last when constructing an ECHConfig, and MUST reject ECHConfigs where <code>ech_auth</code> is not the last extension.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
+<p id="section-5.1-2">The <code>ech_auth</code> extension MUST be the last extension in the ECHConfig's extension list. This allows the ECHConfigTBS to be computed by truncating the serialized ECHConfig at the signature field, without needing to parse into the extension or update length prefixes. Implementations MUST place this extension last when constructing an ECHConfig, and MUST reject ECHConfigs where <code>ech_auth</code> is not the last extension.<a href="#section-5.1-2" class="pilcrow">¶</a></p>
 <p id="section-5.1-3">The <code>ech_auth</code> and <code>ech_authinfo</code> extensions have the following structure:<a href="#section-5.1-3" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-5.1-4">
 <pre>
@@ -1542,10 +1542,7 @@ to_be_signed = context_label || ECHConfigTBS
 <p id="section-5.1.1-3">where:<a href="#section-5.1.1-3" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-5.1.1-4.1">
-              <p id="section-5.1.1-4.1.1"><code>ECHConfigTBS</code> (To-Be-Signed) is the serialized ECHConfig structure including
-the <code>ech_auth</code> extension, but with the <code>signature</code> field within <code>ech_auth</code>
-set to zero-length. This includes all ECHConfig fields and the <code>ech_auth</code>
-extension's <code>method</code>, <code>not_after</code>, <code>authenticator</code>, and <code>algorithm</code> fields.<a href="#section-5.1.1-4.1.1" class="pilcrow">¶</a></p>
+              <p id="section-5.1.1-4.1.1"><code>ECHConfigTBS</code> (To-Be-Signed) is the serialized ECHConfig truncated immediately before the <code>signature</code> field in <code>ech_auth</code>. Because <code>ech_auth</code> is the last extension, this is the ECHConfig prefix up to and including the <code>algorithm</code> field.<a href="#section-5.1.1-4.1.1" class="pilcrow">¶</a></p>
 </li>
             <li class="normal" id="section-5.1.1-4.2">
               <p id="section-5.1.1-4.2.1">All multi-byte values use network byte order (big-endian)<a href="#section-5.1.1-4.2.1" class="pilcrow">¶</a></p>

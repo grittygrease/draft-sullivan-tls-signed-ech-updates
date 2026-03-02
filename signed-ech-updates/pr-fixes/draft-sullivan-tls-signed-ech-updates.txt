@@ -344,10 +344,12 @@ Table of Contents
    verify the provided config independently of the TLS handshake.
 
    The ech_auth extension MUST be the last extension in the ECHConfig's
-   extension list.  This ensures that the signature in the extension
-   covers all other extensions in the ECHConfigTBS.  Implementations
-   MUST place this extension last when constructing an ECHConfig, and
-   MUST reject ECHConfigs where ech_auth is not the last extension.
+   extension list.  This allows the ECHConfigTBS to be computed by
+   truncating the serialized ECHConfig at the signature field, without
+   needing to parse into the extension or update length prefixes.
+   Implementations MUST place this extension last when constructing an
+   ECHConfig, and MUST reject ECHConfigs where ech_auth is not the last
+   extension.
 
    The ech_auth and ech_authinfo extensions have the following
    structure:
@@ -385,11 +387,10 @@ struct {
 
    where:
 
-   *  ECHConfigTBS (To-Be-Signed) is the serialized ECHConfig structure
-      including the ech_auth extension, but with the signature field
-      within ech_auth set to zero-length.  This includes all ECHConfig
-      fields and the ech_auth extension's method, not_after,
-      authenticator, and algorithm fields.
+   *  ECHConfigTBS (To-Be-Signed) is the serialized ECHConfig truncated
+      immediately before the signature field in ech_auth.  Because
+      ech_auth is the last extension, this is the ECHConfig prefix up to
+      and including the algorithm field.
 
    *  All multi-byte values use network byte order (big-endian)
 
