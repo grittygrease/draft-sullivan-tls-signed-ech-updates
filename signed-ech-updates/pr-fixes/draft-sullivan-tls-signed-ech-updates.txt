@@ -138,10 +138,10 @@ Table of Contents
    certificates.
 
    This document introduces an alternative authentication mechanism for
-   ECHConfig data which does not rely on the public name used in the
-   initial ECHConfig.  This allows server operators to partition the
-   retry configuration between different domains, as well as enabling a
-   greater flexibility in the public name used.
+   ECHConfig data which does not require the server to hold a valid TLS
+   certificate for the public name.  This allows server operators to
+   partition the retry configuration between different domains, as well
+   as enabling greater flexibility in the public name used.
 
    The mechanism supports two authentication methods:
 
