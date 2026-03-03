@@ -459,6 +459,17 @@ ECHConfigList to distribute:
    EncryptedExtensions.  This allows the client to
    immediately retry with the correct configuration.
 
+   The server sends a Certificate message as part of the
+   outer handshake, but the certificate does not need to
+   be valid for the ECHConfig's `public_name`.  The
+   server MAY use any certificate, including its default
+   certificate or a certificate for the origin server
+   name.  When this specification is in use, the outer
+   handshake serves as an encrypted and
+   integrity-protected transport for the signed retry
+   configs; the client does not rely on the server's
+   certificate for authentication of the retry configs.
+
 The server may indicate that the client should attempt to
 retry without ECH by producing a signature over a
 zero-length ECHConfigList.
@@ -498,11 +509,13 @@ in EncryptedExtensions:
      (outer handshake):
      * The client treats the retry_configs as authentic
        per {{I-D.ietf-tls-esni}}.
+     * Because the `ech_auth` signature establishes
+       authenticity of the retry configs, the client does
+       not need to validate the server's Certificate
+       message in the outer handshake.
      * The client MUST terminate the connection and retry
        with the new ECHConfig or without ECH if indicated
        by the server.
-     * The retry does not consider the server's TLS
-       certificate for the public name.
    - If validation succeeds and this was an ECH
      acceptance:
      * No changes to the ECH specification.
@@ -587,20 +600,25 @@ channel.
 
 ### Retry Configuration Integrity
 
-ECHConfigs delivered in EncryptedExtensions are usually
-protected by TLS 1.3's handshake encryption and integrity
-mechanisms.  The Finished message ensures that any
-modification by an attacker would be detected.  The
-authenticity of the Finished message is assured by
-validating the server's certificate chain, which the client
-checks is valid for the ECH Public Name.
+In the base ECH specification, retry configs in
+EncryptedExtensions are authenticated by the server's TLS
+certificate for the public name.  This specification
+replaces that certificate-based authentication with the
+`ech_auth` signature.
 
-However, signed ECHConfigs do not benefit from this
-authentication because the client does not validate the
-server's certificate chain.  Instead, the client verifies
-the ECHConfigs against the authenticator provided in the
-initial ECHConfig.  This provides the same level of
-authenticity as checking the ECH Public Name would.
+The outer handshake still provides confidentiality and
+integrity protection for the retry configs.
+EncryptedExtensions is encrypted with the handshake
+traffic key, and the Finished message ensures that any
+modification by an active attacker would be detected.
+However, because the client does not validate the
+server's certificate, an active attacker could establish
+the outer handshake with the client while forwarding
+legitimate signed retry configs obtained from the real
+server.  This is not a security concern: the retry
+configs are independently authenticated by the `ech_auth`
+signature, and the client does not send application data
+during the outer handshake when ECH is rejected.
 
 The inclusion of `not_after` timestamps (for RPK) or
 certificate validity periods (for PKIX) ensures
