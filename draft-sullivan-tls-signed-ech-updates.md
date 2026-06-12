@@ -368,6 +368,14 @@ When a server receives a ClientHello with the
    EncryptedExtensions.  This allows the client to
    immediately retry with the correct configuration.
 
+The server sends a Certificate message as part of the outer handshake,
+but the certificate need not be valid for the ECHConfig's `public_name`.
+The server MAY use any certificate, including its default certificate or
+one for the origin server name.  The client does not rely on the
+server's certificate to authenticate the retry configurations; the outer
+handshake serves only as an encrypted, integrity-protected transport for
+the signed configurations.
+
 The server may indicate that the client should attempt to
 retry without ECH by setting `disable` to `1` in a
 signed `ech_auth` extension.
