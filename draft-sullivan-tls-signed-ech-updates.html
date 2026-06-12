@@ -1251,7 +1251,10 @@ valid certificate for the public name.<a href="#section-abstract-2" class="pilcr
                     <p id="section-toc.1-1.7.2.2.2.1.1"><a href="#section-7.2.1" class="auto internal xref">7.2.1</a>.  <a href="#name-retry-configuration-integri" class="internal xref">Retry Configuration Integrity</a></p>
 </li>
                   <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2.2.2">
-                    <p id="section-toc.1-1.7.2.2.2.2.1"><a href="#section-7.2.2" class="auto internal xref">7.2.2</a>.  <a href="#name-key-management" class="internal xref">Key Management</a></p>
+                    <p id="section-toc.1-1.7.2.2.2.2.1"><a href="#section-7.2.2" class="auto internal xref">7.2.2</a>.  <a href="#name-replay-and-freshness-of-sig" class="internal xref">Replay and Freshness of Signed Configurations</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.2.2.3">
+                    <p id="section-toc.1-1.7.2.2.2.3.1"><a href="#section-7.2.3" class="auto internal xref">7.2.3</a>.  <a href="#name-key-management" class="internal xref">Key Management</a></p>
 </li>
                 </ul>
 </li>
@@ -1894,12 +1897,14 @@ modification by an attacker would be detected.  The
 authenticity of the Finished message is assured by
 validating the server's certificate chain, which the client
 checks is valid for the ECH Public Name.<a href="#section-7.2.1-1" class="pilcrow">¶</a></p>
-<p id="section-7.2.1-2">However, signed ECHConfigs do not benefit from this
-authentication because the client does not validate the
-server's certificate chain.  Instead, the client verifies
-the ECHConfigs against the trusted keys provided in the
-initial ECHConfig.  This provides the same level of
-authenticity as checking the ECH Public Name would.<a href="#section-7.2.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.2.1-2">However, signed ECHConfigs do not benefit from this handshake
+authentication, because the client does not validate the server's
+certificate chain.  Instead, the client verifies each ECHConfig against
+the trusted keys recorded from the initial ECHConfig.  This
+authenticates the configuration to the same trust anchor that a
+certificate for the public name would, but, unlike a CertificateVerify
+computed over the handshake transcript, the signature carries no
+connection-specific input.<a href="#section-7.2.1-2" class="pilcrow">¶</a></p>
 <p id="section-7.2.1-3">The <code>not_after</code> timestamp ensures configuration freshness.
 This temporal bound prevents clients from accepting stale
 configurations that might use compromised keys or outdated
@@ -1908,19 +1913,55 @@ parameters.<a href="#section-7.2.1-3" class="pilcrow">¶</a></p>
 any session tickets or session ids presented by the server.<a href="#section-7.2.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="key-management">
+<div id="replay-and-freshness-of-signed-configurations">
 <section id="section-7.2.2">
-          <h4 id="name-key-management">
-<a href="#section-7.2.2" class="section-number selfRef">7.2.2. </a><a href="#name-key-management" class="section-name selfRef">Key Management</a>
+          <h4 id="name-replay-and-freshness-of-sig">
+<a href="#section-7.2.2" class="section-number selfRef">7.2.2. </a><a href="#name-replay-and-freshness-of-sig" class="section-name selfRef">Replay and Freshness of Signed Configurations</a>
           </h4>
-<p id="section-7.2.2-1">Servers MUST protect their ECH update signing keys.  If a
+<p id="section-7.2.2-1">A signed ECHConfig is authenticated as a detached object rather than
+through the connection that delivers it.  It is therefore valid in any
+connection until its <code>not_after</code> time, and a party that obtains one (for
+example, by requesting a retry configuration as an ordinary client) can
+present it in other connections within that window.  This is an intended
+consequence of the design: detaching the configuration from the
+connection is what allows operators to sign updates offline and without
+a certificate for the public name.<a href="#section-7.2.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.2.2-2">Replay is bounded.  An attacker cannot forge a configuration that was
+never signed; it can only re-present one the operator actually issued,
+and only until that configuration's <code>not_after</code>.  The <code>not_after</code> window
+is the freshness bound on a signed configuration, so operators SHOULD
+keep it as short as their signing cadence allows.  Removing a key's hash
+from <code>trusted_keys</code> prevents acceptance of configurations signed by that
+key once clients refetch the initial ECHConfig.<a href="#section-7.2.2-2" class="pilcrow">¶</a></p>
+<p id="section-7.2.2-3">When rotating away from a compromised HPKE key, operators should note
+that retry configurations signed before the rotation remain valid until
+their <code>not_after</code>; an on-path attacker can replay one to steer a client
+back onto the old key during that window.  Rotation is therefore not
+complete until the last signed configuration referencing the retired key
+has expired, and operators SHOULD choose <code>not_after</code> with this in mind.<a href="#section-7.2.2-3" class="pilcrow">¶</a></p>
+<p id="section-7.2.2-4">Validation checks only that the signing key's hash appears in
+<code>trusted_keys</code>; it does not bind a retry configuration to the initial
+configuration it updates.  An operator that signs configurations for
+multiple independent domains with a single key therefore allows a
+configuration signed for one domain to validate when presented during a
+connection to another.  To preserve the isolation this mechanism
+provides for privacy-critical key material, operators SHOULD use a
+separate signing key per isolation domain.<a href="#section-7.2.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="key-management">
+<section id="section-7.2.3">
+          <h4 id="name-key-management">
+<a href="#section-7.2.3" class="section-number selfRef">7.2.3. </a><a href="#name-key-management" class="section-name selfRef">Key Management</a>
+          </h4>
+<p id="section-7.2.3-1">Servers MUST protect their ECH update signing keys.  If a
 signing key is compromised, the server SHOULD remove its
 hash from <code>trusted_keys</code>. As clients do not cache <code>trusted_keys</code> beyond
 the lifetime of their initial connection attempt, this removal takes effect
-as soon as the client is aware of the new ECHConfiguration, e.g. via DNS.<a href="#section-7.2.2-1" class="pilcrow">¶</a></p>
-<p id="section-7.2.2-2">Servers SHOULD include multiple
+as soon as the client is aware of the new ECHConfiguration, e.g. via DNS.<a href="#section-7.2.3-1" class="pilcrow">¶</a></p>
+<p id="section-7.2.3-2">Servers SHOULD include multiple
 keys in <code>trusted_keys</code> to facilitate key rotation and
-recovery from compromise.<a href="#section-7.2.2-2" class="pilcrow">¶</a></p>
+recovery from compromise.<a href="#section-7.2.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
