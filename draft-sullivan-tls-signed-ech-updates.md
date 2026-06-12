@@ -583,25 +583,30 @@ a valid TLS certificate for the public name could be used to disable ECH.
 
 # IANA Considerations {#iana}
 
-## ECHConfig Extension
+## TLS ECHConfig Extension Registry
 
-IANA is requested to add the following entries to the
-"ECH Configuration Extension Registry"
-{{!RFC9849}}.  The codepoints assigned to
-these extensions MUST have the high-order bit set, marking them
-as mandatory ECHConfig extensions as described in
-{{RFC9849}}.
+IANA is requested to register two new entries in the "TLS ECHConfig
+Extension" registry, in the "TLS Encrypted Client Hello (ECH)
+Configuration Extensions" registry group established by {{!RFC9849}}.
+This registry operates under the Specification Required policy, and both
+codepoints MUST be assigned with the high-order bit set, marking the
+extensions as mandatory ECHConfig extensions as described in
+{{!RFC9849}}.
 
-- Extension Name: `ech_authinfo`
-- Value: TBD1 (high-order bit set)
-- Purpose: Conveys the set of public key hashes
-  authorized to sign ECH retry configurations
+The first entry registers `ech_authinfo`, which conveys the SHA-256
+hashes of the public keys authorized to sign ECH retry configurations:
+
+- Value: TBD1 (assigned with the high-order bit set)
+- Extension Name: ech_authinfo
+- Recommended: N
 - Reference: This document
 
-- Extension Name: `ech_auth`
-- Value: TBD2 (high-order bit set)
-- Purpose: Conveys the signing key and signature for an
-  ECH retry configuration
+The second entry registers `ech_auth`, which conveys the signing key and
+signature for an ECH retry configuration:
+
+- Value: TBD2 (assigned with the high-order bit set)
+- Extension Name: ech_auth
+- Recommended: N
 - Reference: This document
 
 # Deployment Considerations {#deployment-considerations}
