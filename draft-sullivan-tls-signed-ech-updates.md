@@ -31,6 +31,8 @@ normative:
   RFC9180:
   RFC9460:
   RFC9849:
+
+informative:
   I-D.ietf-tls-svcb-ech:
   I-D.ietf-tls-wkech:
 
@@ -59,14 +61,13 @@ valid certificate for the public name.
 
 # Introduction
 
-Deployment of TLS Encrypted ClientHello (ECH) requires that
-clients obtain the server's current ECH configuration
-(ECHConfig) before initiating a connection.  Current
-mechanisms distribute ECHConfig data via DNS SVCB and HTTPS
-resource records {{!RFC9460}}{{!I-D.ietf-tls-svcb-ech}} or
-HTTPS well-known URIs {{!I-D.ietf-tls-wkech}}, allowing
-servers to publish their ECHConfigList prior to connection
-establishment.
+Deployment of TLS Encrypted ClientHello (ECH) requires that clients
+obtain the server's current ECH configuration (ECHConfig) before
+initiating a connection.  Current mechanisms distribute ECHConfig data
+via DNS SVCB and HTTPS resource records
+{{!RFC9460}}{{I-D.ietf-tls-svcb-ech}} or HTTPS well-known URIs
+{{I-D.ietf-tls-wkech}}, allowing servers to publish their ECHConfigList
+prior to connection establishment.
 
 ECH includes a retry mechanism where servers can send an
 updated ECHConfigList during the handshake.  The base ECH
@@ -154,11 +155,10 @@ outer SNI:
 
 # Mechanism Overview
 
-The server operator adds an `ech_authinfo` extension to the
-ECHConfigs it advertises via DNS or other means. Each `ech_authinfo` extension
-carries a set of `trusted_keys`, each value being
-`SHA-256(SPKI)` of a public key that is authorized to
-sign an ECH retry configuration.
+The server operator adds an `ech_authinfo` extension to the ECHConfigs
+it advertises via DNS or other means.  Each `ech_authinfo` extension
+carries a set of `trusted_keys`, each value being `SHA-256(SPKI)` of a
+public key that is authorized to sign an ECH retry configuration.
 
 When providing a retry configuration, the server operator
 adds an `ech_auth`
@@ -275,10 +275,10 @@ When set to `1`, the client MUST NOT attempt ECH on the
 retry.  The ECHConfig to which this `ech_auth` extension is
 attached is then used only to carry and authenticate this
 signal; its other contents (for example, its HPKE
-`public_key`) MUST be ignored.  On successful validation the
-client SHOULD clear any cached ECHConfig for this public
-name and retry without ECH.  Senders MUST encode `disable` as `0` or `1`; clients
-MUST reject any other value.
+`public_key`) MUST be ignored.  On successful validation the client
+SHOULD clear any cached ECHConfig for this public name and retry without
+ECH.  Senders MUST encode `disable` as `0` or `1`; clients MUST reject
+any other value.
 
 ### Signature Computation
 
@@ -305,7 +305,7 @@ where:
 - All multi-byte values use network byte order
   (big-endian).
 - The serialization follows TLS 1.3 presentation language
-  rules from {{RFC8446}}.
+  rules from {{!RFC8446}}.
 
 The `not_after` field is the number of seconds since the
 Unix epoch (1970-01-01T00:00:00Z UTC, excluding leap
@@ -395,7 +395,11 @@ examines the `ech_authinfo` extension and records the set
 of `trusted_keys` for the duration of that connection
 attempt only; these are not cached across connections.
 
-During the TLS handshake, if ECH was not accepted by the server as defined in 6.1.4 of {{!RFC9849}}, the client follows the steps described in 6.1.6 of {{!RFC9849}}. However, rather than follow 6.1.7 of {{!RFC9849}}, it follows the steps below to determine if each provided ECH retry_config is authentic.
+During the TLS handshake, if ECH was not accepted by the server as
+defined in 6.1.4 of {{!RFC9849}}, the client follows the steps described
+in 6.1.6 of {{!RFC9849}}.  However, rather than follow 6.1.7 of
+{{!RFC9849}}, it follows the steps below to determine if each provided
+ECH retry_config is authentic.
 
 1. Validation: The retry_config MUST contain an `ech_auth`
    extension; a retry_config that does not is treated as
@@ -417,9 +421,14 @@ During the TLS handshake, if ECH was not accepted by the server as defined in 6.
        certificate for the public name.
      * The client need not validate any other provided retry_config.
 
-4. If steps 1 or 2 do not complete successfully the client should process the remaining retry_configs (if any).
+4. If steps 1 or 2 do not complete successfully the client should
+   process the remaining retry_configs (if any).
 
-5. If no retry_config can be successfully authenticated, the client behaves as though the validation process described in 6.1.7 of {{!RFC9849}} has failed. The client MUST abort the connection with the appropriate alert and report the error to the calling application.
+5. If no retry_config can be successfully authenticated, the client
+   behaves as though the validation process described in 6.1.7 of
+   {{!RFC9849}} has failed.  The client MUST abort the connection with
+   the appropriate alert and report the error to the calling
+   application.
 
 Note: Regardless of validation outcome in an ECH
 rejection, the client will terminate the current
@@ -450,7 +459,9 @@ connection to fail.  Marking the extension mandatory ensures
 such clients degrade gracefully rather than using a
 configuration whose retry path they cannot complete.
 
-Servers wanting to support both legacy clients and clients that understand this specification should offer multiple ECHConfigs, one with this extension, one without.
+Servers wanting to support both legacy clients and clients that
+understand this specification should offer multiple ECHConfigs, one with
+this extension, one without.
 
 # Example Exchange
 
@@ -533,8 +544,8 @@ This temporal bound prevents clients from accepting stale
 configurations that might use compromised keys or outdated
 parameters.
 
-The requirements in 6.1.7 of {{!RFC9849}} already require clients to ignore
-any session tickets or session ids presented by the server.
+The requirements in 6.1.7 of {{!RFC9849}} already require clients to
+ignore any session tickets or session ids presented by the server.
 
 ### Replay and Freshness of Signed Configurations
 
@@ -575,9 +586,10 @@ separate signing key per isolation domain.
 
 Servers MUST protect their ECH update signing keys.  If a
 signing key is compromised, the server SHOULD remove its
-hash from `trusted_keys`. As clients do not cache `trusted_keys` beyond
-the lifetime of their initial connection attempt, this removal takes effect
-as soon as the client is aware of the new ECHConfiguration, e.g. via DNS.
+hash from `trusted_keys`.  As clients do not cache `trusted_keys` beyond
+the lifetime of their initial connection attempt, this removal takes
+effect as soon as the client is aware of the new ECHConfiguration, e.g.
+via DNS.
 
 Servers SHOULD include multiple
 keys in `trusted_keys` to facilitate key rotation and
@@ -623,8 +635,8 @@ ECHConfig updates are delivered within encrypted TLS
 messages, preventing passive observers from learning about
 configuration changes.  Server-directed ECH disablement
 (a signed `ech_auth` with `disable` set to `1`) could
-degrade privacy if signing keys are compromised, similarly to how
-a valid TLS certificate for the public name could be used to disable ECH.
+degrade privacy if signing keys are compromised, similarly to how a
+valid TLS certificate for the public name could be used to disable ECH.
 
 # IANA Considerations {#iana}
 
