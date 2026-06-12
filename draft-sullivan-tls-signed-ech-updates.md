@@ -11,7 +11,6 @@ keyword:
   - Encrypted ClientHello
   - ECH
   - Key Rotation
-  - PKIX
   - RPK
 
 author:
@@ -27,12 +26,11 @@ author:
 
 normative:
   RFC2119:
-  RFC5280:
   RFC8174:
   RFC8446:
   RFC9180:
   RFC9460:
-  I-D.ietf-tls-esni:
+  RFC9849:
   I-D.ietf-tls-svcb-ech:
   I-D.ietf-tls-wkech:
 
@@ -64,22 +62,23 @@ valid certificate for the public name.
 Deployment of TLS Encrypted ClientHello (ECH) requires that
 clients obtain the server's current ECH configuration
 (ECHConfig) before initiating a connection.  Current
-mechanisms distribute ECHConfig data via DNS HTTPS resource
-records {{!RFC9460}} or HTTPS well-known URIs
-{{!I-D.ietf-tls-wkech}}, allowing servers to publish their
-ECHConfigList prior to connection establishment.
+mechanisms distribute ECHConfig data via DNS SVCB and HTTPS
+resource records {{!RFC9460}}{{!I-D.ietf-tls-svcb-ech}} or
+HTTPS well-known URIs {{!I-D.ietf-tls-wkech}}, allowing
+servers to publish their ECHConfigList prior to connection
+establishment.
 
 ECH includes a retry mechanism where servers can send an
 updated ECHConfigList during the handshake.  The base ECH
 specification instructs clients to authenticate this
 information using a certificate valid for the public name
-{{!I-D.ietf-tls-esni}}.
+{{!RFC9849}}.
 
 This forces a tradeoff between security and privacy for
 server operators.  Using the same public name for as many
 websites as possible improves client privacy, but makes
 obtaining or compromising a valid certificate for that
-cover name a high value target for attackers.  It also
+public name a high value target for attackers.  It also
 restricts the usable public names in an ECH deployment to
 those for which operators can obtain valid certificates.
 
@@ -90,17 +89,16 @@ name.  This allows server operators to partition the retry
 configuration between different domains, as well as
 enabling greater flexibility in the public name used.
 
-The mechanism supports two authentication methods:
-
-1. Raw Public Key (RPK) - Uses SPKI hashes to identify
-   public keys for retry authentication.
-2. PKIX - Uses certificate-based signing with a critical
-   X.509 extension.
-
-Each ECH Retry Configuration carries at most one signature
-using the specified method, replacing the need to
-authenticate the ECH Retry configuration through the TLS
-handshake and ECH Public Name.
+The mechanism authenticates updates with bare signing
+keys identified by the hash of their
+SubjectPublicKeyInfo.  A server's
+initial ECHConfig lists the SHA-256 hashes of the
+SubjectPublicKeyInfos of one or more public keys
+authorized to sign updates, and each ECH Retry
+Configuration carries a signature from one of those keys.
+This replaces the need to authenticate the ECH Retry
+configuration through the TLS handshake and ECH Public
+Name.
 
 # Conventions and Definitions
 
@@ -108,14 +106,15 @@ handshake and ECH Public Name.
 
 This document assumes familiarity with TLS 1.3
 {{!RFC8446}} and the ECH specification
-{{!I-D.ietf-tls-esni}}, referred to here as simply "ECH".
+{{!RFC9849}}, referred to here as simply "ECH".
 
 ## Terminology
 
 ECHConfig:
 : An individual ECH configuration structure as defined in
-  {{!I-D.ietf-tls-esni}}, which includes fields such as
-  `public_name`, `public_key` (HPKE key), and extensions.
+  {{!RFC9849}}, which includes fields such as
+  `public_name`, `public_key` (an HPKE {{!RFC9180}} key),
+  and extensions.
 
 ECHConfigList:
 : A sequence of one or more ECHConfig structures as
@@ -127,8 +126,8 @@ ECHConfigTBS (To-Be-Signed):
 : The serialized ECHConfig structure including the
   `ech_auth` extension, but with the `signature` field
   within `ech_auth` set to zero-length.  This includes all
-  ECHConfig fields and the `ech_auth` extension's `method`,
-  `not_after`, `authenticator`, and `algorithm` fields.
+  ECHConfig fields and the `ech_auth` extension's
+  `not_after`, `disable`, `spki`, and `algorithm` fields.
 
 signed ECHConfig:
 : An ECHConfig that contains an `ech_auth` extension with
@@ -145,7 +144,7 @@ public name:
 retry_configs:
 : The ECHConfigList sent by a server in
   EncryptedExtensions when ECH is rejected, as defined in
-  {{!I-D.ietf-tls-esni}}.
+  {{!RFC9849}}.
 
 outer SNI:
 : The Server Name Indication value sent in the outer
@@ -153,91 +152,37 @@ outer SNI:
   typically the ECHConfig's `public_name` or another name
   that preserves client privacy.
 
-The reader should recall that in TLS 1.3, the server's
-EncryptedExtensions message is encrypted and
-integrity-protected with handshake keys
-{{!I-D.ietf-tls-esni}}.  New extensions defined as part
-of EncryptedExtensions are not visible to network attackers
-and cannot be modified by an attacker without detection.
-Additionally, "certificate verification" refers to the
-standard X.509 validation process (chain building,
-signature and expiration checking, name matching, etc.)
-unless otherwise specified.
-
 # Mechanism Overview
 
-This specification defines two methods for authenticating
-ECH configuration updates:
-
-Raw Public Keys (RPK) has little wire overhead and no
-external dependencies.  The site offering ECH places one
-or more public key hashes in their ECH Configs, then can
-use those keys to sign ECH Retry Configs.  However, key
-rotation must be managed by the site operator, through
-updates to the list of trusted public key hashes.
-
-PKIX has a larger wire overhead and requires coordination
-with an issuing CA who must provide certificates with an
-appropriate extension.  However, it does not require any
-manual key rotation.  The public name used to authenticate
-the certificate is a fixed string, which is never visible
-on the wire, and the operator can rotate certificate chains
-without needing to change their advertised ECHConfigs.
-
-## Raw Public Key (RPK)
-
-The ECHConfigList update is authenticated by a Raw Public
-Key (RPK).  The ECHConfig's `ech_authinfo` extension
+The server operator adds an `ech_authinfo` extension to the
+ECHConfigs it advertises via DNS or other means. Each `ech_authinfo` extension
 carries a set of `trusted_keys`, each value being
-`SHA-256(SPKI)` of an RPK that is authorized to sign an
-update.
+`SHA-256(SPKI)` of a public key that is authorized to
+sign an ECH retry configuration.
 
-A client receiving a signed ECH retry configuration (e.g.,
-in EncryptedExtensions) MUST:
+When providing a retry configuration, the server operator
+adds an `ech_auth`
+extension holding the signing key (`spki`) and a
+`signature`; it does not carry `trusted_keys`.  The client
+validates it against the `trusted_keys` it recorded from
+the initial configuration's `ech_authinfo` extension.
 
-1. Extract the authenticator key's SubjectPublicKeyInfo
-   (SPKI) and compute `sha256(spki)`.  Verify membership
-   in `trusted_keys`.
-2. Verify that `not_after` is strictly greater than the
-   client's current time.
-3. Verify the signature over the ECH Configuration and the
-   `not_after` using the authenticator's public key.
+A client receiving such a configuration (e.g., in
+EncryptedExtensions) extracts the signing key's
+SubjectPublicKeyInfo (SPKI) from the `ech_auth` extension,
+checks that its hash is one of the recorded `trusted_keys`,
+checks that the configuration has not expired, and verifies
+the signature using the signing key.  The normative
+requirements for this validation are specified in
+{{client-behavior}}.
 
-The client may then use the signed ECH retry configuration
-to make a new connection attempt, in line with the existing
-rules for ECH retries laid out in the ECH specification.
-Alternatively, the server can indicate that ECH should not
-be used by producing a signature over a zero-length
-ECHConfigList.  Clients receiving a verified zero-length
-list MUST NOT attempt ECH on the subsequent retry and
-SHOULD clear any cached ECHConfig for this public name.
-
-## PKIX (Certificate-Based)
-
-The update is signed with the private key corresponding to
-an X.509 certificate that chains to a client trusted root
-and is valid for the ECHConfig `public_name` (i.e.,
-appears in the certificate's SAN).
-
-The leaf certificate MUST include a new, critical X.509
-v3 extension `id-pe-echConfigSigning` (OID: TBD) whose
-presence indicates authorization to sign ECH configuration
-updates for the DNS names in the certificate's SAN.
-Clients MUST perform standard X.509 certificate validation
-per {{!RFC5280, Section 6}} and additionally:
-
-- MUST confirm the SAN covers the ECHConfig `public_name`;
-- MUST confirm the critical `id-pe-echConfigSigning`
-  extension is present in the leaf;
-- MUST verify the ECH signature with the leaf key; and
-- MUST verify that the `not_after` field in `ech_auth` is
-  strictly greater than the client's current time.
-
-When this critical extension is present, clients MUST NOT
-accept the certificate for TLS server authentication.  The
-use of the critical bit ensures that even clients who are
-unaware of the extension will not accept it for TLS server
-authentication.
+A client that successfully validates a signed retry
+configuration uses it to make a new connection attempt, in
+line with the existing rules for ECH retries laid out in
+the ECH specification.  Alternatively, the server can
+indicate that ECH should not be used by setting `disable`
+to `1` in a signed `ech_auth` extension, in which case the
+validating client retries without ECH.
 
 # Benefits of Signed ECH Configurations
 
@@ -249,24 +194,23 @@ enables several important capabilities:
 ## Distinct Public Names Without CA Certificates
 
 A server can use many different public hostnames (even
-per-client, per-connection unique ones) for other
-operational reasons {{!I-D.ietf-tls-esni}}, without having
+per-client, per-connection unique ones) without having
 to obtain certificates for each.  This was not possible
 under the original ECH design, which required a valid
 certificate for any public name used
-{{!I-D.ietf-tls-esni}}.
+{{!RFC9849}}.
 
 ## Isolating Privacy-Critical Key Material
 
 In a large CDN deployment, the ECH specification requires
 many endpoints to have access to key material which can
-authenticate a TLS connection for the ECH Cover Name.
+authenticate a TLS connection for the public name.
 This raises privacy and security risks where compromise of
 the private key material in turn compromises the privacy
 of ECH users and the security of normal TLS connections to
-the cover name.  Both mechanisms introduced in this
-document avoid this problematic sharing of private key
-material, reducing the risk for ECH operators.
+the public name.  The mechanism introduced in this document
+avoids this sharing of private key material,
+reducing the risk for ECH operators.
 
 # Protocol Elements {#wire-formats}
 
@@ -281,9 +225,21 @@ The information for authenticating retry configs is carried
 as an ECHConfig extension (`ech_authinfo`) inside the
 ECHConfig structure and conveys authentication policy.  ECH
 Retry Configs include an `ech_auth` extension which
-includes a signed authenticator that allows clients to
-verify the provided config independently of the TLS
+carries the signing key and a signature, allowing clients
+to verify the provided config independently of the TLS
 handshake.
+
+A single ECHConfig MUST NOT carry both extensions.
+Initial configurations (for example, those published via
+DNS) carry `ech_authinfo`; signed retry configurations
+delivered in EncryptedExtensions carry `ech_auth`.  A
+client MUST reject any ECHConfig that contains both.
+Because a client performs at most a single retry per
+connection attempt (per {{!RFC9849}}), a signed retry
+configuration does not itself need to carry `trusted_keys`
+for authenticating a subsequent update; on later
+connections the client re-fetches the initial configuration
+and its `ech_authinfo`.
 
 The `ech_auth` extension MUST be the last extension in the
 ECHConfig's extension list.  This simplifies ECHConfigTBS
@@ -299,27 +255,30 @@ The `ech_auth` and `ech_authinfo` extensions have the
 following structure:
 
 ~~~~
-    enum {
-        rpk(0),
-        pkix(1),
-        (255)
-    } ECHAuthMethod;
-
     opaque SPKIHash<32..32>;
 
     struct {
-      ECHAuthMethod method;
-      SPKIHash trusted_keys<0..2^16-1>;
+      SPKIHash trusted_keys<32..2^16-1>;
     } ECHAuthInfo;
 
     struct {
-        ECHAuthMethod method;
-        uint64 not_after;
-        opaque authenticator<1..2^16-1>;
+        uint64 not_after; /* seconds since the Unix epoch */
+        uint8 disable;    /* boolean: 0 = false, 1 = true */
+        opaque spki<1..2^16-1>;
         SignatureScheme algorithm;
         opaque signature<1..2^16-1>;
     } ECHAuth;
 ~~~~
+
+The `disable` field is a boolean.
+When set to `1`, the client MUST NOT attempt ECH on the
+retry.  The ECHConfig to which this `ech_auth` extension is
+attached is then used only to carry and authenticate this
+signal; its other contents (for example, its HPKE
+`public_key`) MUST be ignored.  On successful validation the
+client SHOULD clear any cached ECHConfig for this public
+name and retry without ECH.  Senders MUST encode `disable` as `0` or `1`; clients
+MUST reject any other value.
 
 ### Signature Computation
 
@@ -335,67 +294,50 @@ where:
 - `ECHConfigTBS` (To-Be-Signed) is the serialized
   ECHConfig structure including the `ech_auth` extension,
   but with the `signature` field within `ech_auth` set to
-  zero-length.  This includes all ECHConfig fields and
-  the `ech_auth` extension's `method`, `not_after`,
-  `authenticator`, and `algorithm` fields.
+  zero-length.  That is, the two-byte length prefix of the
+  `signature` field is encoded as `0x0000` and no signature
+  bytes follow; this zero-length encoding is used only when
+  constructing `ECHConfigTBS` and does not appear on the
+  wire, where `signature` carries the actual signature.
+  `ECHConfigTBS` includes all ECHConfig fields and the
+  `ech_auth` extension's `not_after`, `disable`, `spki`, and
+  `algorithm` fields.
 - All multi-byte values use network byte order
   (big-endian).
 - The serialization follows TLS 1.3 presentation language
   rules from {{RFC8446}}.
 
-Note: `trusted_keys` is intentionally not covered by the
-signature.  Including it would require existing authorized
-keys to sign transitions when adding or removing keys,
-creating operational risk if all keys are lost.  The
-security model relies on the authenticity of the initial
-ECHConfig distribution for the authorized key set.
+The `not_after` field is the number of seconds since the
+Unix epoch (1970-01-01T00:00:00Z UTC, excluding leap
+seconds), and bounds the replay window for a signed
+configuration.  Shorter windows reduce the replay
+window but require more frequent signature generation.
+Longer windows allow pre-signing but increase exposure to
+replayed configurations.  A window of 24 hours is
+RECOMMENDED as a balance between operational simplicity
+and replay resistance.
 
-For both methods, `not_after` bounds the replay window
-independently of any certificate validity period.  Shorter
-windows reduce the replay window but require more frequent
-signature generation.  Longer windows allow pre-signing but
-increase exposure to replayed configurations.  A window of
-24 hours is RECOMMENDED as a balance between operational
-simplicity and replay resistance.
+The `spki` field contains the DER-encoded
+SubjectPublicKeyInfo of the signing key.  The client MUST
+compute the SHA-256 hash of `spki`, verify that it matches
+one of the hashes in `trusted_keys`, check that the
+current time is before the `not_after` timestamp, and then
+verify the signature with the public key in `spki`.  The
+`not_after` field is REQUIRED and MUST be a timestamp
+strictly greater than the client's current time at
+verification.
 
-Method-specific `authenticator`:
+The `algorithm` field is a `SignatureScheme` value from
+{{!RFC8446}}.  The client MUST verify that `algorithm` is
+consistent with the key type and parameters of the public
+key carried in `spki` (for example, the curve of an ECDSA
+key), and MUST reject the signed ECHConfig if it is not.
+The signature is computed and verified according to the
+rules for that `SignatureScheme` in {{!RFC8446}}.
 
-- RPK (method=0): the DER-encoded SubjectPublicKeyInfo
-  (SPKI) of the signing key.  The client MUST compute the
-  SHA-256 hash of the SPKI, verify that it matches one of
-  the hashes in `trusted_keys`, check that the current
-  time is before the `not_after` timestamp, and then
-  verify the signature with this key.  The `not_after`
-  field is REQUIRED and MUST be a timestamp strictly
-  greater than the client's current time at verification.
-- PKIX (method=1): a CertificateEntry vector (leaf +
-  optional intermediates) as in TLS 1.3 Certificate; the
-  leaf MUST include the critical `id-pe-echConfigSigning`
-  extension and be valid for the ECHConfig `public_name`.
-  The client validates the chain, confirms the SAN
-  includes the ECH `public_name`, confirms the critical
-  `id-pe-echConfigSigning` extension is present in the
-  leaf, and verifies the signature with the leaf key.  The
-  `not_after` field MUST be a timestamp strictly greater
-  than the client's current time at verification.
-
-Notes:
-
-- `trusted_keys` is only used by RPK; clients MUST ignore
-  it for PKIX.
-- If `method` is `rpk(0)`, `trusted_keys` MUST contain at
-  least one SPKI hash; otherwise it MUST be zero-length.
-- A server publishing multiple ECHConfigs MAY use different
-  methods for each to maximize client compatibility.
-
-Context-specific requirements:
-
-- When carried in TLS (EncryptedExtensions), an `ech_auth`
-  extension in each delivered ECHConfig MUST include a
-  signed authenticator in `signature`, and the client MUST
-  verify the authenticator before installing the ECHConfig.
-- When carried in DNS, an `ech_authinfo` extension conveys
-  only policy (`method`, `trusted_keys`).
+Implementations MUST support `ecdsa_secp256r1_sha256`.
+Implementations MAY support additional `SignatureScheme`
+values and MUST be able to handle algorithm transitions.
 
 The SPKI hash uses SHA-256 (value 4 in the IANA TLS
 HashAlgorithm registry).  Allowing multiple hashes enables
@@ -408,46 +350,13 @@ specification could add a hash algorithm field using the
 TLS HashAlgorithm registry if algorithm agility becomes
 necessary.
 
-Client behavior: When a client obtains an ECHConfig that
-contains an `ech_authinfo` extension, it SHOULD store this
-information along with the configuration.
-
-Server behavior: A server that wishes to allow
-authenticated updates MUST include `ech_authinfo` in the
-ECHConfig it publishes via DNS or other means.  The server
-MUST set the `method` field to the authentication method it
-will use for this configuration.  The server MUST ensure
-that it actually has the capability to perform the
-indicated method:
-
-- If `method` is `rpk(0)`, the server needs a signing key
-  whose SPKI hash is in `trusted_keys`.  It may have
-  multiple keys for rotation; all keys that might sign an
-  update before the next ECHConfig change should be listed.
-- If `method` is `pkix(1)`, the server MUST have a valid
-  certificate (and chain) for the public name with the
-  critical `id-pe-echConfigSigning` extension (as defined
-  in {{iana}}) available at runtime to use for signing.
-  The certificate's public key algorithm dictates what
-  signature algorithms are possible.
-
-## TLS Extensions for ECH Config Update
-
-### EncryptedExtensions Delivery
-
-This specification reuses the ECH retry_configs delivery
-mechanism: the server sends an ECHConfigList where each
-ECHConfig contains the `ech_auth` extension with a signed
-authenticator.  The server MAY include multiple ECHConfigs
-with different authentication methods (e.g., one with PKIX
-and one with RPK).
+## TLS Behavior
 
 ### Server Behavior
 
 When a server receives a ClientHello with the
-`encrypted_client_hello` extension, it processes ECH per
-{{!I-D.ietf-tls-esni}}.  If the server has an updated
-ECHConfigList to distribute:
+`encrypted_client_hello` extension, it processes it per
+{{!RFC9849}}. Depending on the outcome:
 
 1. ECH Accepted: If the server successfully decrypts the
    ClientHelloInner, it completes the handshake using the
@@ -455,76 +364,85 @@ ECHConfigList to distribute:
 
 2. ECH Rejected: If the server cannot decrypt the
    ClientHelloInner, it SHOULD proceed with the outer
-   handshake and include signed ECHConfigs in
+   handshake and include a signed retry ECHConfig in
    EncryptedExtensions.  This allows the client to
    immediately retry with the correct configuration.
 
 The server may indicate that the client should attempt to
-retry without ECH by producing a signature over a
-zero-length ECHConfigList.
+retry without ECH by setting `disable` to `1` in a
+signed `ech_auth` extension.
 
-### Client Behavior
+A server that wishes to allow
+authenticated updates MUST include `ech_authinfo` in the
+ECHConfig it publishes via DNS or other means.  The server
+MUST list, in `trusted_keys`, the SHA-256 hash of the SPKI
+of every signing key that might sign an update before the
+next ECHConfig change.  Multiple keys MAY be listed to
+support key rotation.
+
+### Client Behavior {#client-behavior}
 
 When a client retrieves an ECHConfig (e.g., from DNS), it
-examines the `ech_authinfo` extension and records:
+examines the `ech_authinfo` extension and records the set
+of `trusted_keys` for the duration of that connection
+attempt only; these are not cached across connections.
 
-- The authentication `method` (RPK or PKIX)
-- Any `trusted_keys` for RPK validation
+During the TLS handshake, if ECH was not accepted by the server as defined in 6.1.4 of {{!RFC9849}}, the client follows the steps described in 6.1.6 of {{!RFC9849}}. However, rather than follow 6.1.7 of {{!RFC9849}}, it follows the steps below to determine if each provided ECH retry_config is authentic.
 
-During the TLS handshake, upon receiving an ECHConfigList
-in EncryptedExtensions:
+1. Validation: The retry_config MUST contain an `ech_auth`
+   extension; a retry_config that does not is treated as
+   failing validation.  The client computes the SHA-256 hash
+   of the provided `spki`, verifies it matches one of the
+   entries in `trusted_keys`, and verifies the signature
+   using the public key contained in `spki`.
 
-1. Validation: The client validates the authenticator
-   according to its method:
-   - RPK: Computes the SHA-256 hash of the provided SPKI,
-     verifies it matches one in `trusted_keys`, then
-     verifies the signature.
-   - PKIX: Validates the certificate chain, verifies the
-     leaf certificate covers the ECHConfig's
-     `public_name`, checks for the critical
-     `id-pe-echConfigSigning` extension, then verifies
-     the signature.
+2. Validity Checking: The client verifies that
+   `not_after` is strictly greater than the current time.
 
-2. Validity Checking: The client checks temporal validity:
-   - For RPK: Verifies `not_after` is strictly greater
-     than the current time.
-   - For PKIX: Verifies the certificate validity period
-     and that `not_after` is strictly greater than the
-     current time.
-
-3. Installation and Retry (see {{appendix-a}} for state
-   diagram):
-   - If validation succeeds and this was an ECH rejection
-     (outer handshake):
-     * The client treats the retry_configs as authentic
-       per {{I-D.ietf-tls-esni}}.
+3. If steps 1 and 2 complete successfully:
+     * The client treats the retry_config as authentic
+       per {{RFC9849}}.
      * The client MUST terminate the connection and retry
        with the new ECHConfig or without ECH if indicated
        by the server.
      * The retry does not consider the server's TLS
        certificate for the public name.
-   - If validation succeeds and this was an ECH
-     acceptance:
-     * No changes to the ECH specification.
-   - If validation fails:
-     * The client MUST treat this as if the server's TLS
-       certificate could not be validated.
-     * The client MUST NOT use the retry_configs.
-     * The client terminates the connection without retry.
+     * The client need not validate any other provided retry_config.
+
+4. If steps 1 or 2 do not complete successfully the client should process the remaining retry_configs (if any).
+
+5. If no retry_config can be successfully authenticated, the client behaves as though the validation process described in 6.1.7 of {{!RFC9849}} has failed. The client MUST abort the connection with the appropriate alert and report the error to the calling application.
 
 Note: Regardless of validation outcome in an ECH
 rejection, the client will terminate the current
 connection.  The difference is whether it retries with the
-new configs (validation success) or treats it as a
+new config or ECH disabled (validation success) or treats it as a
 certificate validation failure (validation failure).
 
-### Backward Compatibility
+### Backward Compatibility {#mandatory}
 
-Clients that do not implement this specification continue
-to process `retry_configs` as defined in
-{{!I-D.ietf-tls-esni}}, ignoring the authentication
-extensions.  Servers that do not implement this
-specification send `retry_configs` as usual.
+ECHConfig extensions, unlike TLS extensions, can be tagged
+as mandatory by using an extension type codepoint with the
+high order bit set to 1 {{!RFC9849}}.  A client
+that does not understand a mandatory ECHConfig extension
+MUST ignore the entire ECHConfig.
+
+The `ech_authinfo` extension is always mandatory: the
+codepoint assigned to it ({{iana}}) has the high-order bit
+set.  As a consequence, a client that does not implement this
+specification (a "legacy client") ignores the entire
+ECHConfig and does not attempt ECH with it, connecting
+directly or using another compatible configuration.  This
+is the intended behavior: a legacy client would otherwise
+attempt ECH and then be unable to authenticate any
+`retry_configs` delivered on an ECH rejection (because, in
+the deployments this document targets, the server may hold no
+certificate valid for the public name), causing the
+connection to fail.  Marking the extension mandatory ensures
+such clients degrade gracefully rather than using a
+configuration whose retry path they cannot complete.
+
+Servers wanting to support both legacy clients and clients that understand this specification should offer multiple ECHConfigs, one with this extension, one without.
 
 # Example Exchange
 
@@ -533,11 +451,9 @@ specification send `retry_configs` as usual.
 Consider `api.example.com` as a service protected by ECH
 with public name `ech.example.net`.  The operator publishes
 an ECHConfig via DNS HTTPS RR with the `ech_authinfo`
-extension containing:
-
-- Method: RPK (value 0)
-- Trusted keys: SHA-256 hash of an Ed25519 signing key's
-  SPKI
+extension containing, in `trusted_keys`, the SHA-256 hash
+of the SPKI of an ECDSA P-256 signing key (using the
+mandatory-to-implement `ecdsa_secp256r1_sha256` scheme).
 
 ## Successful ECH
 
@@ -549,11 +465,11 @@ This flow works identically to existing ECH.
 2. Server rejects ECH: Cannot decrypt inner ClientHello
 3. Server continues outer handshake:
    - Sends signed ECHConfig in EncryptedExtensions
-   - Uses certificate for `foo.example.net` (the client
+   - Uses TLS certificate for `foo.example.net` (the client
      does not validate this certificate; retry
      authentication uses the signed ECHConfig)
 4. Client recovery:
-   - Validates new ECHConfig
+   - Validates new ECHConfig via the signature it carries.
    - Closes connection
    - Immediately retries with new ECHConfig
 
@@ -598,27 +514,29 @@ checks is valid for the ECH Public Name.
 However, signed ECHConfigs do not benefit from this
 authentication because the client does not validate the
 server's certificate chain.  Instead, the client verifies
-the ECHConfigs against the authenticator provided in the
+the ECHConfigs against the trusted keys provided in the
 initial ECHConfig.  This provides the same level of
 authenticity as checking the ECH Public Name would.
 
-The inclusion of `not_after` timestamps (for RPK) or
-certificate validity periods (for PKIX) ensures
-configuration freshness.  These temporal bounds prevent
-clients from accepting stale configurations that might use
-compromised keys or outdated parameters.
+The `not_after` timestamp ensures configuration freshness.
+This temporal bound prevents clients from accepting stale
+configurations that might use compromised keys or outdated
+parameters.
+
+The requirements in 6.1.7 of {{!RFC9849}} already require clients to ignore
+any session tickets or session ids presented by the server.
 
 ### Key Management
 
-Servers MUST protect their ECH update signing keys.  If an
-RPK signing key is compromised, the server SHOULD remove
-its hash from `trusted_keys`.  Servers SHOULD include
-multiple keys in `trusted_keys` to facilitate key rotation
-and recovery from compromise.
+Servers MUST protect their ECH update signing keys.  If a
+signing key is compromised, the server SHOULD remove its
+hash from `trusted_keys`. As clients do not cache `trusted_keys` beyond
+the lifetime of their initial connection attempt, this removal takes effect
+as soon as the client is aware of the new ECHConfiguration, e.g. via DNS.
 
-For PKIX-based updates, normal certificate lifecycle
-management applies.  Servers SHOULD obtain new certificates
-before existing ones expire.
+Servers SHOULD include multiple
+keys in `trusted_keys` to facilitate key rotation and
+recovery from compromise.
 
 ## Implementation Vulnerabilities
 
@@ -631,10 +549,11 @@ configurations, not how it responds to the success or
 failure of that authentication.
 
 Algorithm agility is provided through the TLS
-SignatureScheme registry for RPK and standard PKIX
-certificate algorithms.  Implementations SHOULD support
-commonly deployed algorithms and MUST be able to handle
-algorithm transitions.
+SignatureScheme registry.  As specified in
+{{extensions}}, implementations MUST support
+`ecdsa_secp256r1_sha256`, MAY support additional commonly
+deployed algorithms, and MUST be able to handle algorithm
+transitions.
 
 ### Denial of Service Considerations
 
@@ -658,137 +577,104 @@ those already present in TLS and DNS when used with ECH.
 ECHConfig updates are delivered within encrypted TLS
 messages, preventing passive observers from learning about
 configuration changes.  Server-directed ECH disablement
-(signing an empty ECHConfigList) could degrade privacy if
-signing keys are compromised; clients SHOULD re-fetch
-ECHConfigs from DNS on subsequent connections to limit this
-exposure.
+(a signed `ech_auth` with `disable` set to `1`) could
+degrade privacy if signing keys are compromised, similarly to how
+a valid TLS certificate for the public name could be used to disable ECH.
 
 # IANA Considerations {#iana}
 
 ## ECHConfig Extension
 
 IANA is requested to add the following entries to the
-"ECH Configuration Extension Type Values" registry:
+"ECH Configuration Extension Registry"
+{{!RFC9849}}.  The codepoints assigned to
+these extensions MUST have the high-order bit set, marking them
+as mandatory ECHConfig extensions as described in
+{{RFC9849}}.
 
 - Extension Name: `ech_authinfo`
-- Value: TBD1
-- Purpose: Conveys supported authentication methods and
-  trusted keys
+- Value: TBD1 (high-order bit set)
+- Purpose: Conveys the set of public key hashes
+  authorized to sign ECH retry configurations
 - Reference: This document
 
 - Extension Name: `ech_auth`
-- Value: TBD2
-- Purpose: Conveys authenticator and signatures
+- Value: TBD2 (high-order bit set)
+- Purpose: Conveys the signing key and signature for an
+  ECH retry configuration
 - Reference: This document
 
-## X.509 Certificate Extension OID
-
-IANA is requested to allocate an object identifier (OID)
-under the "SMI Security for PKIX Certificate Extensions
-(1.3.6.1.5.5.7.1)" registry with the following values:
-
-- OID: id-pe-echConfigSigning (1.3.6.1.5.5.7.1.TBD2)
-- Name: ECH Configuration Signing
-- Description: Indicates that the certificate's subject
-  public key is authorized to sign ECH configuration
-  updates for the DNS names in the certificate's Subject
-  Alternative Name (SAN).
-- Criticality: Certificates containing this extension
-  MUST mark it critical.
-- Reference: This document.
-
-## ECH Authentication Methods Registry
-
-IANA is requested to establish a new registry called
-"ECH Authentication Methods" with the following initial
-values:
-
-| Value | Method     | Description                                  | Reference      |
-|-------|------------|----------------------------------------------|----------------|
-| 0     | RPK        | Raw Public Key                               | This document  |
-| 1     | PKIX       | X.509 with critical id-pe-echConfigSigning   | This document  |
-| 2-255 | Unassigned | -                                            | -              |
-
-New values are assigned via IETF Review.
-
 # Deployment Considerations {#deployment-considerations}
-
-## Method Selection
-
-Operators SHOULD support at least one widely implemented
-method.  PKIX (critical extension) provides easier
-operational deployment with standard certificate issuance
-workflows.  RPK offers small artifacts and simple
-verification but the list of hashed keys and those used for
-signing must be carefully kept in sync.
 
 ## Size Considerations
 
 When sending signed ECHConfigs in EncryptedExtensions,
 servers SHOULD be mindful of message size to avoid
-fragmentation or exceeding anti-amplification limits.  RPK
-signatures are typically more compact than PKIX certificate
-chains.
+fragmentation or exceeding anti-amplification limits.
 
 ## Key Rotation
 
 Operators SHOULD publish updates well in advance of key
-retirement.  Include appropriate validity periods for each
-method.  Consider overlapping validity windows to allow
-graceful client migration.
+retirement.  Include appropriate `not_after` values for
+each signed configuration.  Consider overlapping validity
+windows to allow graceful client migration.
 
 --- back
 
 # Client Retry State Diagram {#appendix-a}
 
-The following diagram shows client behavior upon receiving
-retry_configs in EncryptedExtensions.  "ech_auth" refers
-to the authentication extension within the delivered
-ECHConfig.
+The following diagram shows client behavior upon ECH
+rejection, when the server delivers retry_configs in
+EncryptedExtensions.  The client validates each delivered
+ECHConfig against the `trusted_keys` recorded from the
+initial configuration, using the first one that
+authenticates.  "ech_auth" refers to the authentication
+extension within a delivered ECHConfig.
 
 ~~~~
     Receive retry_configs in EE
+        (ECH was rejected)
                 |
                 v
-      +-------------------+
-      | ech_auth present? |
-      +-------------------+
-         |             |
-        yes            no
-         |             |
-         v             v
-    +-----------+   Process per base
-    | Validate  |   ECH spec (no
-    | ech_auth  |   authentication)
-    +-----------+
-         |
-    +----+----+
-    |         |
-  valid    invalid
-    |         |
-    v         v
-  +-----+  Treat as certificate
-  | ECH |  validation failure;
-  | out |  terminate connection;
-  | come|  do not retry.
-  | ?   |
-  +-----+
-    |    \
- rejected  accepted
-    |        \
-    v         v
-  +--------+ Continue handshake
-  |Config  | normally (no change
-  |empty?  | to ECH spec).
-  +--------+
-    |     \
-   no     yes (zero-length)
-    |       \
-    v        v
-  Terminate  Terminate connection;
-  connection; MUST NOT attempt ECH
-  retry with  on retry; SHOULD
-  new config. clear cached config.
+      +------------------------+
+      | More retry_configs     |<-------------+
+      | left to validate?      |              |
+      +------------------------+              |
+         |                  |                 |
+        yes                 no                |
+         |                  |                 |
+         v                  v                 |
+   +----------------+   Treat as certificate  |
+   | Validate next  |   validation failure;   |
+   | config:        |   terminate connection; |
+   |  - ech_auth    |   abort with alert;     |
+   |    present     |   report error;         |
+   |  - SPKI hash   |   do not retry.         |
+   |    in          |                         |
+   |    trusted_keys|                         |
+   |  - signature   |                         |
+   |    valid       |                         |
+   |  - not_after   |                         |
+   |    > now       |                         |
+   +----------------+                         |
+      |        |                              |
+     no        yes                            |
+      |        |                              |
+      +--------|--- (try next config) --------+
+               |
+               v
+         +-----------+
+         | disable   |
+         |  set?     |
+         +-----------+
+          |        |
+         no        yes
+          |        |
+          v        v
+    Terminate     Terminate connection;
+    connection;   MUST NOT attempt ECH
+    retry with    on retry; SHOULD
+    new config.   clear cached config.
 ~~~~
 {: #fig-retry title="Client Retry State Diagram"}
 
