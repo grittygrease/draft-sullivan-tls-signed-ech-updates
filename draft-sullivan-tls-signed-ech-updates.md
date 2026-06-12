@@ -511,12 +511,14 @@ authenticity of the Finished message is assured by
 validating the server's certificate chain, which the client
 checks is valid for the ECH Public Name.
 
-However, signed ECHConfigs do not benefit from this
-authentication because the client does not validate the
-server's certificate chain.  Instead, the client verifies
-the ECHConfigs against the trusted keys provided in the
-initial ECHConfig.  This provides the same level of
-authenticity as checking the ECH Public Name would.
+However, signed ECHConfigs do not benefit from this handshake
+authentication, because the client does not validate the server's
+certificate chain.  Instead, the client verifies each ECHConfig against
+the trusted keys recorded from the initial ECHConfig.  This
+authenticates the configuration to the same trust anchor that a
+certificate for the public name would, but, unlike a CertificateVerify
+computed over the handshake transcript, the signature carries no
+connection-specific input.
 
 The `not_after` timestamp ensures configuration freshness.
 This temporal bound prevents clients from accepting stale
@@ -525,6 +527,41 @@ parameters.
 
 The requirements in 6.1.7 of {{!RFC9849}} already require clients to ignore
 any session tickets or session ids presented by the server.
+
+### Replay and Freshness of Signed Configurations
+
+A signed ECHConfig is authenticated as a detached object rather than
+through the connection that delivers it.  It is therefore valid in any
+connection until its `not_after` time, and a party that obtains one (for
+example, by requesting a retry configuration as an ordinary client) can
+present it in other connections within that window.  This is an intended
+consequence of the design: detaching the configuration from the
+connection is what allows operators to sign updates offline and without
+a certificate for the public name.
+
+Replay is bounded.  An attacker cannot forge a configuration that was
+never signed; it can only re-present one the operator actually issued,
+and only until that configuration's `not_after`.  The `not_after` window
+is the freshness bound on a signed configuration, so operators SHOULD
+keep it as short as their signing cadence allows.  Removing a key's hash
+from `trusted_keys` prevents acceptance of configurations signed by that
+key once clients refetch the initial ECHConfig.
+
+When rotating away from a compromised HPKE key, operators should note
+that retry configurations signed before the rotation remain valid until
+their `not_after`; an on-path attacker can replay one to steer a client
+back onto the old key during that window.  Rotation is therefore not
+complete until the last signed configuration referencing the retired key
+has expired, and operators SHOULD choose `not_after` with this in mind.
+
+Validation checks only that the signing key's hash appears in
+`trusted_keys`; it does not bind a retry configuration to the initial
+configuration it updates.  An operator that signs configurations for
+multiple independent domains with a single key therefore allows a
+configuration signed for one domain to validate when presented during a
+connection to another.  To preserve the isolation this mechanism
+provides for privacy-critical key material, operators SHOULD use a
+separate signing key per isolation domain.
 
 ### Key Management
 
