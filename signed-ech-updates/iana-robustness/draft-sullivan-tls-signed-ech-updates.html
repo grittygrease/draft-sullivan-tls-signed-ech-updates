@@ -1278,7 +1278,7 @@ valid certificate for the public name.<a href="#section-abstract-2" class="pilcr
             <p id="section-toc.1-1.9.1"><a href="#section-9" class="auto internal xref">9</a>.  <a href="#name-iana-considerations" class="internal xref">IANA Considerations</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.9.2.1">
-                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-tls-echconfig-extension-reg" class="internal xref">TLS ECHConfig Extension Registry</a></p>
+                <p id="section-toc.1-1.9.2.1.1"><a href="#section-9.1" class="auto internal xref">9.1</a>.  <a href="#name-echconfig-extension" class="internal xref">ECHConfig Extension</a></p>
 </li>
             </ul>
 </li>
@@ -2031,48 +2031,43 @@ a valid TLS certificate for the public name could be used to disable ECH.<a href
       <h2 id="name-iana-considerations">
 <a href="#section-9" class="section-number selfRef">9. </a><a href="#name-iana-considerations" class="section-name selfRef">IANA Considerations</a>
       </h2>
-<div id="tls-echconfig-extension-registry">
+<div id="echconfig-extension">
 <section id="section-9.1">
-        <h3 id="name-tls-echconfig-extension-reg">
-<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-tls-echconfig-extension-reg" class="section-name selfRef">TLS ECHConfig Extension Registry</a>
+        <h3 id="name-echconfig-extension">
+<a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-echconfig-extension" class="section-name selfRef">ECHConfig Extension</a>
         </h3>
-<p id="section-9.1-1">IANA is requested to register two new entries in the "TLS ECHConfig
-Extension" registry, in the "TLS Encrypted Client Hello (ECH)
-Configuration Extensions" registry group established by <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>.
-This registry operates under the Specification Required policy, and both
-codepoints MUST be assigned with the high-order bit set, marking the
-extensions as mandatory ECHConfig extensions as described in
+<p id="section-9.1-1">IANA is requested to add the following entries to the
+"ECH Configuration Extension Registry"
+<span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>.  The codepoints assigned to
+these extensions MUST have the high-order bit set, marking them
+as mandatory ECHConfig extensions as described in
 <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>.<a href="#section-9.1-1" class="pilcrow">¶</a></p>
-<p id="section-9.1-2">The first entry registers <code>ech_authinfo</code>, which conveys the SHA-256
-hashes of the public keys authorized to sign ECH retry configurations:<a href="#section-9.1-2" class="pilcrow">¶</a></p>
 <ul class="normal">
-<li class="normal" id="section-9.1-3.1">
-            <p id="section-9.1-3.1.1">Value: TBD1 (assigned with the high-order bit set)<a href="#section-9.1-3.1.1" class="pilcrow">¶</a></p>
+<li class="normal" id="section-9.1-2.1">
+            <p id="section-9.1-2.1.1">Extension Name: <code>ech_authinfo</code><a href="#section-9.1-2.1.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.1-3.2">
-            <p id="section-9.1-3.2.1">Extension Name: ech_authinfo<a href="#section-9.1-3.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.2">
+            <p id="section-9.1-2.2.1">Value: TBD1 (high-order bit set)<a href="#section-9.1-2.2.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.1-3.3">
-            <p id="section-9.1-3.3.1">Recommended: N<a href="#section-9.1-3.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.3">
+            <p id="section-9.1-2.3.1">Purpose: Conveys the set of public key hashes
+authorized to sign ECH retry configurations<a href="#section-9.1-2.3.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.1-3.4">
-            <p id="section-9.1-3.4.1">Reference: This document<a href="#section-9.1-3.4.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.4">
+            <p id="section-9.1-2.4.1">Reference: This document<a href="#section-9.1-2.4.1" class="pilcrow">¶</a></p>
 </li>
-        </ul>
-<p id="section-9.1-4">The second entry registers <code>ech_auth</code>, which conveys the signing key and
-signature for an ECH retry configuration:<a href="#section-9.1-4" class="pilcrow">¶</a></p>
-<ul class="normal">
-<li class="normal" id="section-9.1-5.1">
-            <p id="section-9.1-5.1.1">Value: TBD2 (assigned with the high-order bit set)<a href="#section-9.1-5.1.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.5">
+            <p id="section-9.1-2.5.1">Extension Name: <code>ech_auth</code><a href="#section-9.1-2.5.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.1-5.2">
-            <p id="section-9.1-5.2.1">Extension Name: ech_auth<a href="#section-9.1-5.2.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.6">
+            <p id="section-9.1-2.6.1">Value: TBD2 (high-order bit set)<a href="#section-9.1-2.6.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.1-5.3">
-            <p id="section-9.1-5.3.1">Recommended: N<a href="#section-9.1-5.3.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.7">
+            <p id="section-9.1-2.7.1">Purpose: Conveys the signing key and signature for an
+ECH retry configuration<a href="#section-9.1-2.7.1" class="pilcrow">¶</a></p>
 </li>
-          <li class="normal" id="section-9.1-5.4">
-            <p id="section-9.1-5.4.1">Reference: This document<a href="#section-9.1-5.4.1" class="pilcrow">¶</a></p>
+          <li class="normal" id="section-9.1-2.8">
+            <p id="section-9.1-2.8.1">Reference: This document<a href="#section-9.1-2.8.1" class="pilcrow">¶</a></p>
 </li>
         </ul>
 </section>
