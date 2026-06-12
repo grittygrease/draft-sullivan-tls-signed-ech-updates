@@ -1294,7 +1294,15 @@ valid certificate for the public name.<a href="#section-abstract-2" class="pilcr
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11">
-            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+            <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-references" class="internal xref">References</a></p>
+<ul class="compact toc ulBare ulEmpty">
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.1">
+                <p id="section-toc.1-1.11.2.1.1"><a href="#section-11.1" class="auto internal xref">11.1</a>.  <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+</li>
+              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.11.2.2">
+                <p id="section-toc.1-1.11.2.2.1"><a href="#section-11.2" class="auto internal xref">11.2</a>.  <a href="#name-informative-references" class="internal xref">Informative References</a></p>
+</li>
+            </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
             <p id="section-toc.1-1.12.1"><a href="#appendix-A" class="auto internal xref">Appendix A</a>.  <a href="#name-client-retry-state-diagram" class="internal xref">Client Retry State Diagram</a></p>
@@ -1314,14 +1322,13 @@ valid certificate for the public name.<a href="#section-abstract-2" class="pilcr
       <h2 id="name-introduction">
 <a href="#section-1" class="section-number selfRef">1. </a><a href="#name-introduction" class="section-name selfRef">Introduction</a>
       </h2>
-<p id="section-1-1">Deployment of TLS Encrypted ClientHello (ECH) requires that
-clients obtain the server's current ECH configuration
-(ECHConfig) before initiating a connection.  Current
-mechanisms distribute ECHConfig data via DNS SVCB and HTTPS
-resource records <span>[<a href="#RFC9460" class="cite xref">RFC9460</a>]</span><span>[<a href="#I-D.ietf-tls-svcb-ech" class="cite xref">I-D.ietf-tls-svcb-ech</a>]</span> or
-HTTPS well-known URIs <span>[<a href="#I-D.ietf-tls-wkech" class="cite xref">I-D.ietf-tls-wkech</a>]</span>, allowing
-servers to publish their ECHConfigList prior to connection
-establishment.<a href="#section-1-1" class="pilcrow">¶</a></p>
+<p id="section-1-1">Deployment of TLS Encrypted ClientHello (ECH) requires that clients
+obtain the server's current ECH configuration (ECHConfig) before
+initiating a connection.  Current mechanisms distribute ECHConfig data
+via DNS SVCB and HTTPS resource records
+<span>[<a href="#RFC9460" class="cite xref">RFC9460</a>]</span><span>[<a href="#I-D.ietf-tls-svcb-ech" class="cite xref">I-D.ietf-tls-svcb-ech</a>]</span> or HTTPS well-known URIs
+<span>[<a href="#I-D.ietf-tls-wkech" class="cite xref">I-D.ietf-tls-wkech</a>]</span>, allowing servers to publish their ECHConfigList
+prior to connection establishment.<a href="#section-1-1" class="pilcrow">¶</a></p>
 <p id="section-1-2">ECH includes a retry mechanism where servers can send an
 updated ECHConfigList during the handshake.  The base ECH
 specification instructs clients to authenticate this
@@ -1437,11 +1444,10 @@ that preserves client privacy.<a href="#section-2.1-1.14.1" class="pilcrow">¶</
       <h2 id="name-mechanism-overview">
 <a href="#section-3" class="section-number selfRef">3. </a><a href="#name-mechanism-overview" class="section-name selfRef">Mechanism Overview</a>
       </h2>
-<p id="section-3-1">The server operator adds an <code>ech_authinfo</code> extension to the
-ECHConfigs it advertises via DNS or other means. Each <code>ech_authinfo</code> extension
-carries a set of <code>trusted_keys</code>, each value being
-<code>SHA-256(SPKI)</code> of a public key that is authorized to
-sign an ECH retry configuration.<a href="#section-3-1" class="pilcrow">¶</a></p>
+<p id="section-3-1">The server operator adds an <code>ech_authinfo</code> extension to the ECHConfigs
+it advertises via DNS or other means.  Each <code>ech_authinfo</code> extension
+carries a set of <code>trusted_keys</code>, each value being <code>SHA-256(SPKI)</code> of a
+public key that is authorized to sign an ECH retry configuration.<a href="#section-3-1" class="pilcrow">¶</a></p>
 <p id="section-3-2">When providing a retry configuration, the server operator
 adds an <code>ech_auth</code>
 extension holding the signing key (<code>spki</code>) and a
@@ -1570,10 +1576,10 @@ When set to <code>1</code>, the client MUST NOT attempt ECH on the
 retry.  The ECHConfig to which this <code>ech_auth</code> extension is
 attached is then used only to carry and authenticate this
 signal; its other contents (for example, its HPKE
-<code>public_key</code>) MUST be ignored.  On successful validation the
-client SHOULD clear any cached ECHConfig for this public
-name and retry without ECH.  Senders MUST encode <code>disable</code> as <code>0</code> or <code>1</code>; clients
-MUST reject any other value.<a href="#section-5.1-6" class="pilcrow">¶</a></p>
+<code>public_key</code>) MUST be ignored.  On successful validation the client
+SHOULD clear any cached ECHConfig for this public name and retry without
+ECH.  Senders MUST encode <code>disable</code> as <code>0</code> or <code>1</code>; clients MUST reject
+any other value.<a href="#section-5.1-6" class="pilcrow">¶</a></p>
 <div id="signature-computation">
 <section id="section-5.1.1">
           <h4 id="name-signature-computation">
@@ -1706,7 +1712,11 @@ support key rotation.<a href="#section-5.2.1-5" class="pilcrow">¶</a></p>
 examines the <code>ech_authinfo</code> extension and records the set
 of <code>trusted_keys</code> for the duration of that connection
 attempt only; these are not cached across connections.<a href="#section-5.2.2-1" class="pilcrow">¶</a></p>
-<p id="section-5.2.2-2">During the TLS handshake, if ECH was not accepted by the server as defined in 6.1.4 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>, the client follows the steps described in 6.1.6 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>. However, rather than follow 6.1.7 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>, it follows the steps below to determine if each provided ECH retry_config is authentic.<a href="#section-5.2.2-2" class="pilcrow">¶</a></p>
+<p id="section-5.2.2-2">During the TLS handshake, if ECH was not accepted by the server as
+defined in 6.1.4 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>, the client follows the steps described
+in 6.1.6 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>.  However, rather than follow 6.1.7 of
+<span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>, it follows the steps below to determine if each provided
+ECH retry_config is authentic.<a href="#section-5.2.2-2" class="pilcrow">¶</a></p>
 <ol start="1" type="1" class="normal type-1" id="section-5.2.2-3">
 <li id="section-5.2.2-3.1">
               <p id="section-5.2.2-3.1.1">Validation: The retry_config MUST contain an <code>ech_auth</code>
@@ -1742,10 +1752,15 @@ certificate for the public name.<a href="#section-5.2.2-3.3.2.3.1" class="pilcro
               </ul>
 </li>
             <li id="section-5.2.2-3.4">
-              <p id="section-5.2.2-3.4.1">If steps 1 or 2 do not complete successfully the client should process the remaining retry_configs (if any).<a href="#section-5.2.2-3.4.1" class="pilcrow">¶</a></p>
+              <p id="section-5.2.2-3.4.1">If steps 1 or 2 do not complete successfully the client should
+process the remaining retry_configs (if any).<a href="#section-5.2.2-3.4.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-5.2.2-3.5">
-              <p id="section-5.2.2-3.5.1">If no retry_config can be successfully authenticated, the client behaves as though the validation process described in 6.1.7 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> has failed. The client MUST abort the connection with the appropriate alert and report the error to the calling application.<a href="#section-5.2.2-3.5.1" class="pilcrow">¶</a></p>
+              <p id="section-5.2.2-3.5.1">If no retry_config can be successfully authenticated, the client
+behaves as though the validation process described in 6.1.7 of
+<span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> has failed.  The client MUST abort the connection with
+the appropriate alert and report the error to the calling
+application.<a href="#section-5.2.2-3.5.1" class="pilcrow">¶</a></p>
 </li>
           </ol>
 <p id="section-5.2.2-4">Note: Regardless of validation outcome in an ECH
@@ -1779,7 +1794,9 @@ certificate valid for the public name), causing the
 connection to fail.  Marking the extension mandatory ensures
 such clients degrade gracefully rather than using a
 configuration whose retry path they cannot complete.<a href="#section-5.2.3-2" class="pilcrow">¶</a></p>
-<p id="section-5.2.3-3">Servers wanting to support both legacy clients and clients that understand this specification should offer multiple ECHConfigs, one with this extension, one without.<a href="#section-5.2.3-3" class="pilcrow">¶</a></p>
+<p id="section-5.2.3-3">Servers wanting to support both legacy clients and clients that
+understand this specification should offer multiple ECHConfigs, one with
+this extension, one without.<a href="#section-5.2.3-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1916,8 +1933,8 @@ connection-specific input.<a href="#section-7.2.1-2" class="pilcrow">¶</a></p>
 This temporal bound prevents clients from accepting stale
 configurations that might use compromised keys or outdated
 parameters.<a href="#section-7.2.1-3" class="pilcrow">¶</a></p>
-<p id="section-7.2.1-4">The requirements in 6.1.7 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> already require clients to ignore
-any session tickets or session ids presented by the server.<a href="#section-7.2.1-4" class="pilcrow">¶</a></p>
+<p id="section-7.2.1-4">The requirements in 6.1.7 of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> already require clients to
+ignore any session tickets or session ids presented by the server.<a href="#section-7.2.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="replay-and-freshness-of-signed-configurations">
@@ -1963,9 +1980,10 @@ separate signing key per isolation domain.<a href="#section-7.2.2-4" class="pilc
           </h4>
 <p id="section-7.2.3-1">Servers MUST protect their ECH update signing keys.  If a
 signing key is compromised, the server SHOULD remove its
-hash from <code>trusted_keys</code>. As clients do not cache <code>trusted_keys</code> beyond
-the lifetime of their initial connection attempt, this removal takes effect
-as soon as the client is aware of the new ECHConfiguration, e.g. via DNS.<a href="#section-7.2.3-1" class="pilcrow">¶</a></p>
+hash from <code>trusted_keys</code>.  As clients do not cache <code>trusted_keys</code> beyond
+the lifetime of their initial connection attempt, this removal takes
+effect as soon as the client is aware of the new ECHConfiguration, e.g.
+via DNS.<a href="#section-7.2.3-1" class="pilcrow">¶</a></p>
 <p id="section-7.2.3-2">Servers SHOULD include multiple
 keys in <code>trusted_keys</code> to facilitate key rotation and
 recovery from compromise.<a href="#section-7.2.3-2" class="pilcrow">¶</a></p>
@@ -2029,8 +2047,8 @@ ECHConfig updates are delivered within encrypted TLS
 messages, preventing passive observers from learning about
 configuration changes.  Server-directed ECH disablement
 (a signed <code>ech_auth</code> with <code>disable</code> set to <code>1</code>) could
-degrade privacy if signing keys are compromised, similarly to how
-a valid TLS certificate for the public name could be used to disable ECH.<a href="#section-8-1" class="pilcrow">¶</a></p>
+degrade privacy if signing keys are compromised, similarly to how a
+valid TLS certificate for the public name could be used to disable ECH.<a href="#section-8-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="iana">
@@ -2114,45 +2132,61 @@ windows to allow graceful client migration.<a href="#section-10.2-1" class="pilc
 </div>
 </section>
 </div>
-<div id="sec-normative-references">
+<div id="sec-combined-references">
 <section id="section-11">
-      <h2 id="name-normative-references">
-<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+      <h2 id="name-references">
+<a href="#section-11" class="section-number selfRef">11. </a><a href="#name-references" class="section-name selfRef">References</a>
       </h2>
+<div id="sec-normative-references">
+<section id="section-11.1">
+        <h3 id="name-normative-references">
+<a href="#section-11.1" class="section-number selfRef">11.1. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+        </h3>
 <dl class="references">
 <dt id="RFC2119">[RFC2119]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Bradner, S.</span>, <span class="refTitle">"Key words for use in RFCs to Indicate Requirement Levels"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 2119</span>, <span class="seriesInfo">DOI 10.17487/RFC2119</span>, <time datetime="1997-03" class="refDate">March 1997</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC8174">[RFC8174]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Leiba, B.</span>, <span class="refTitle">"Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words"</span>, <span class="seriesInfo">BCP 14</span>, <span class="seriesInfo">RFC 8174</span>, <span class="seriesInfo">DOI 10.17487/RFC8174</span>, <time datetime="2017-05" class="refDate">May 2017</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8174">https://www.rfc-editor.org/info/rfc8174</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC8446">[RFC8446]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Rescorla, E.</span>, <span class="refTitle">"The Transport Layer Security (TLS) Protocol Version 1.3"</span>, <span class="seriesInfo">RFC 8446</span>, <span class="seriesInfo">DOI 10.17487/RFC8446</span>, <time datetime="2018-08" class="refDate">August 2018</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc8446">https://www.rfc-editor.org/info/rfc8446</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC9180">[RFC9180]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Barnes, R.</span>, <span class="refAuthor">Bhargavan, K.</span>, <span class="refAuthor">Lipp, B.</span>, and <span class="refAuthor">C. Wood</span>, <span class="refTitle">"Hybrid Public Key Encryption"</span>, <span class="seriesInfo">RFC 9180</span>, <span class="seriesInfo">DOI 10.17487/RFC9180</span>, <time datetime="2022-02" class="refDate">February 2022</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9180">https://www.rfc-editor.org/info/rfc9180</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC9460">[RFC9460]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Schwartz, B.</span>, <span class="refAuthor">Bishop, M.</span>, and <span class="refAuthor">E. Nygren</span>, <span class="refTitle">"Service Binding and Parameter Specification via the DNS (SVCB and HTTPS Resource Records)"</span>, <span class="seriesInfo">RFC 9460</span>, <span class="seriesInfo">DOI 10.17487/RFC9460</span>, <time datetime="2023-11" class="refDate">November 2023</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9460">https://www.rfc-editor.org/info/rfc9460</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="RFC9849">[RFC9849]</dt>
       <dd>
 <span class="refAuthor">Rescorla, E.</span>, <span class="refAuthor">Oku, K.</span>, <span class="refAuthor">Sullivan, N.</span>, and <span class="refAuthor">C. A. Wood</span>, <span class="refTitle">"TLS Encrypted Client Hello"</span>, <span class="seriesInfo">RFC 9849</span>, <span class="seriesInfo">DOI 10.17487/RFC9849</span>, <time datetime="2026-03" class="refDate">March 2026</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9849">https://www.rfc-editor.org/info/rfc9849</a>&gt;</span>. </dd>
 <dd class="break"></dd>
+</dl>
+</section>
+</div>
+<div id="sec-informative-references">
+<section id="section-11.2">
+        <h3 id="name-informative-references">
+<a href="#section-11.2" class="section-number selfRef">11.2. </a><a href="#name-informative-references" class="section-name selfRef">Informative References</a>
+        </h3>
+<dl class="references">
 <dt id="I-D.ietf-tls-svcb-ech">[I-D.ietf-tls-svcb-ech]</dt>
-      <dd>
+        <dd>
 <span class="refAuthor">Schwartz, B. M.</span>, <span class="refAuthor">Bishop, M.</span>, and <span class="refAuthor">E. Nygren</span>, <span class="refTitle">"Bootstrapping TLS Encrypted ClientHello with DNS Service Bindings"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-svcb-ech-08</span>, <time datetime="2025-06-16" class="refDate">16 June 2025</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-svcb-ech-08">https://datatracker.ietf.org/doc/html/draft-ietf-tls-svcb-ech-08</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="I-D.ietf-tls-wkech">[I-D.ietf-tls-wkech]</dt>
-    <dd>
+      <dd>
 <span class="refAuthor">Farrell, S.</span>, <span class="refAuthor">Salz, R.</span>, and <span class="refAuthor">B. M. Schwartz</span>, <span class="refTitle">"A well-known URI for publishing service parameters"</span>, <span class="refContent">Work in Progress</span>, <span class="seriesInfo">Internet-Draft, draft-ietf-tls-wkech-12</span>, <time datetime="2026-05-03" class="refDate">3 May 2026</time>, <span>&lt;<a href="https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-12">https://datatracker.ietf.org/doc/html/draft-ietf-tls-wkech-12</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 </dl>
+</section>
+</div>
 </section>
 </div>
 <div id="appendix-a">

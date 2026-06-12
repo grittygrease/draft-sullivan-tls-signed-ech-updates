@@ -106,7 +106,9 @@ Table of Contents
    10. Deployment Considerations
      10.1.  Size Considerations
      10.2.  Key Rotation
-   11. Normative References
+   11. References
+     11.1.  Normative References
+     11.2.  Informative References
    Appendix A.  Client Retry State Diagram
    Appendix B.  Acknowledgments
    Authors' Addresses
@@ -696,7 +698,9 @@ Table of Contents
    Consider overlapping validity windows to allow graceful client
    migration.
 
-11.  Normative References
+11.  References
+
+11.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -723,6 +727,8 @@ Table of Contents
    [RFC9849]  Rescorla, E., Oku, K., Sullivan, N., and C. A. Wood, "TLS
               Encrypted Client Hello", RFC 9849, DOI 10.17487/RFC9849,
               March 2026, <https://www.rfc-editor.org/info/rfc9849>.
+
+11.2.  Informative References
 
    [I-D.ietf-tls-svcb-ech]
               Schwartz, B. M., Bishop, M., and E. Nygren, "Bootstrapping
