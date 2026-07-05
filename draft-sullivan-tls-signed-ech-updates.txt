@@ -5,10 +5,10 @@
 TLS                                                          N. Sullivan
 Internet-Draft                               Cryptography Consulting LLC
 Intended status: Standards Track                              D. Jackson
-Expires: 14 December 2026                                        Mozilla
+Expires: 6 January 2027                                          Mozilla
                                                               A. Ghedini
                                                               Cloudflare
-                                                            12 June 2026
+                                                             5 July 2026
 
 
            Authenticated ECH Config Distribution and Rotation
@@ -55,7 +55,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 14 December 2026.
+   This Internet-Draft will expire on 6 January 2027.
 
 Copyright Notice
 
@@ -346,7 +346,10 @@ Table of Contents
    the current time is before the not_after timestamp, and then verify
    the signature with the public key in spki.  The not_after field is
    REQUIRED and MUST be a timestamp strictly greater than the client's
-   current time at verification.
+   current time at verification.  Because this check is strict and uses
+   the client's local clock, operators SHOULD provision not_after with
+   enough margin to accommodate reasonable client clock skew (on the
+   order of minutes).
 
    The algorithm field is a SignatureScheme value from [RFC8446].  The
    client MUST verify that algorithm is consistent with the key type and
@@ -530,6 +533,11 @@ Table of Contents
    malicious initial configuration, the client's privacy is compromised,
    but their connections remain properly authenticated.
 
+   On ECH rejection, the client sends no application data over the outer
+   handshake, so an attacker that presents a forged or unvalidatable
+   retry configuration extracts nothing from the client beyond what the
+   rejection itself reveals.
+
    Initial retrieval of ECHConfigList via DNS is unchanged by this
    mechanism.  This specification does not attempt to authenticate the
    initial DNS fetch.  ECHConfigs obtained via HTTPS from a well-known
@@ -627,10 +635,14 @@ Table of Contents
 
    The ECH specification allows ECH operators to decide which ECH
    extensions to attempt to decrypt based on the public ECHConfig ID
-   advertised in the ClientHello and the public name.  This extension
-   reduces the value of those signals, depending on the ECH operator's
-   chosen configurations, meaning that ECH operators may need to trial
-   decrypt incoming ECH extensions.
+   advertised in the ClientHello and the public name.  Deployments of
+   this mechanism that vary the public name (for example, per-client
+   public names) weaken the public name as a routing signal.  This is an
+   operational routing tradeoff rather than a protocol mechanism: an
+   operator that chooses such configurations must select candidate
+   configurations using the remaining signals, such as the config ID,
+   and accept the processing cost of decryption attempts that do not
+   succeed.
 
    Attackers cannot force servers to send signed ECHConfigs without
    establishing TLS connections.  Standard TLS denial-of-service

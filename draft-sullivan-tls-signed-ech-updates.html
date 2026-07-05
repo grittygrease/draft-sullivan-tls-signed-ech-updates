@@ -21,7 +21,7 @@ in their initial ECH configurations, which enables clients
 to authenticate updated configurations without relying on a
 valid certificate for the public name. 
     " name="description">
-<meta content="xml2rfc 3.33.0" name="generator">
+<meta content="xml2rfc 3.34.0" name="generator">
 <meta content="TLS 1.3" name="keyword">
 <meta content="Encrypted ClientHello" name="keyword">
 <meta content="ECH" name="keyword">
@@ -29,18 +29,19 @@ valid certificate for the public name.
 <meta content="RPK" name="keyword">
 <meta content="draft-sullivan-tls-signed-ech-updates-latest" name="ietf.draft">
 <!-- Generator version information:
-  xml2rfc 3.33.0
-    Python 3.12.13
-    ConfigArgParse 1.7
+  xml2rfc 3.34.0
+    Python 3.14.5
+    ConfigArgParse 1.7.5
     google-i18n-address 3.1.1
     intervaltree 3.2.1
     Jinja2 3.1.6
-    lxml 6.0.2
-    platformdirs 4.9.6
+    lxml 6.1.1
+    natsort 8.4.0
+    platformdirs 4.10.0
     pycountry 24.6.1
     PyYAML 6.0.3
     requests 2.33.1
-    wcwidth 0.7.0
+    wcwidth 0.8.2
 -->
 <link href="draft-sullivan-tls-signed-ech-updates.xml" rel="alternate" type="application/rfc+xml">
 <link href="#copyright" rel="license">
@@ -1059,11 +1060,11 @@ svg {
 <thead><tr>
 <td class="left">Internet-Draft</td>
 <td class="center">Authenticated ECH Update</td>
-<td class="right">June 2026</td>
+<td class="right">July 2026</td>
 </tr></thead>
 <tfoot><tr>
 <td class="left">Sullivan, et al.</td>
-<td class="center">Expires 14 December 2026</td>
+<td class="center">Expires 6 January 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1076,12 +1077,12 @@ svg {
 <dd class="internet-draft">draft-sullivan-tls-signed-ech-updates-latest</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-06-12" class="published">12 June 2026</time>
+<time datetime="2026-07-05" class="published">5 July 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2026-12-14">14 December 2026</time></dd>
+<dd class="expires"><time datetime="2027-01-06">6 January 2027</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1143,7 +1144,7 @@ valid certificate for the public name.<a href="#section-abstract-2" class="pilcr
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 14 December 2026.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 6 January 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -1625,15 +1626,16 @@ Longer windows allow pre-signing but increase exposure to
 replayed configurations.  A window of 24 hours is
 RECOMMENDED as a balance between operational simplicity
 and replay resistance.<a href="#section-5.1.1-5" class="pilcrow">¶</a></p>
-<p id="section-5.1.1-6">The <code>spki</code> field contains the DER-encoded
-SubjectPublicKeyInfo of the signing key.  The client MUST
-compute the SHA-256 hash of <code>spki</code>, verify that it matches
-one of the hashes in <code>trusted_keys</code>, check that the
-current time is before the <code>not_after</code> timestamp, and then
-verify the signature with the public key in <code>spki</code>.  The
-<code>not_after</code> field is REQUIRED and MUST be a timestamp
-strictly greater than the client's current time at
-verification.<a href="#section-5.1.1-6" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-6">The <code>spki</code> field contains the DER-encoded SubjectPublicKeyInfo of the
+signing key.  The client MUST compute the SHA-256 hash of <code>spki</code>, verify
+that it matches one of the hashes in <code>trusted_keys</code>, check that the
+current time is before the <code>not_after</code> timestamp, and then verify the
+signature with the public key in <code>spki</code>.  The <code>not_after</code> field is
+REQUIRED and MUST be a timestamp strictly greater than the client's
+current time at verification.  Because this check is strict and uses the
+client's local clock, operators SHOULD provision <code>not_after</code> with enough
+margin to accommodate reasonable client clock skew (on the order of
+minutes).<a href="#section-5.1.1-6" class="pilcrow">¶</a></p>
 <p id="section-5.1.1-7">The <code>algorithm</code> field is a <code>SignatureScheme</code> value from
 <span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span>.  The client MUST verify that <code>algorithm</code> is
 consistent with the key type and parameters of the public
@@ -1897,18 +1899,21 @@ cleartext.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
         <h3 id="name-active-network-attackers">
 <a href="#section-7.2" class="section-number selfRef">7.2. </a><a href="#name-active-network-attackers" class="section-name selfRef">Active Network Attackers</a>
         </h3>
-<p id="section-7.2-1">The security of this mechanism fundamentally depends on the
-authenticity of the initial ECHConfig.  If an attacker can
-inject a malicious initial configuration, the client's
-privacy is compromised, but their connections remain
-properly authenticated.<a href="#section-7.2-1" class="pilcrow">¶</a></p>
-<p id="section-7.2-2">Initial retrieval of ECHConfigList via DNS is unchanged by
+<p id="section-7.2-1">The security of this mechanism fundamentally depends on the authenticity
+of the initial ECHConfig.  If an attacker can inject a malicious initial
+configuration, the client's privacy is compromised, but their
+connections remain properly authenticated.<a href="#section-7.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.2-2">On ECH rejection, the client sends no application data over the outer
+handshake, so an attacker that presents a forged or unvalidatable retry
+configuration extracts nothing from the client beyond what the rejection
+itself reveals.<a href="#section-7.2-2" class="pilcrow">¶</a></p>
+<p id="section-7.2-3">Initial retrieval of ECHConfigList via DNS is unchanged by
 this mechanism.  This specification does not attempt to
 authenticate the initial DNS fetch.  ECHConfigs obtained
 via HTTPS from a well-known URI benefit from Web PKI
 authentication.  Pre-configured ECHConfigs in applications
 derive their trust from the application's distribution
-channel.<a href="#section-7.2-2" class="pilcrow">¶</a></p>
+channel.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
 <div id="retry-configuration-integrity">
 <section id="section-7.2.1">
           <h4 id="name-retry-configuration-integri">
@@ -2019,13 +2024,15 @@ transitions.<a href="#section-7.3.1-2" class="pilcrow">¶</a></p>
           <h4 id="name-denial-of-service-considera">
 <a href="#section-7.3.2" class="section-number selfRef">7.3.2. </a><a href="#name-denial-of-service-considera" class="section-name selfRef">Denial of Service Considerations</a>
           </h4>
-<p id="section-7.3.2-1">The ECH specification allows ECH operators to decide which
-ECH extensions to attempt to decrypt based on the public
-ECHConfig ID advertised in the ClientHello and the public
-name.  This extension reduces the value of those signals,
-depending on the ECH operator's chosen configurations,
-meaning that ECH operators may need to trial decrypt
-incoming ECH extensions.<a href="#section-7.3.2-1" class="pilcrow">¶</a></p>
+<p id="section-7.3.2-1">The ECH specification allows ECH operators to decide which ECH
+extensions to attempt to decrypt based on the public ECHConfig ID
+advertised in the ClientHello and the public name.  Deployments of this
+mechanism that vary the public name (for example, per-client public
+names) weaken the public name as a routing signal.  This is an
+operational routing tradeoff rather than a protocol mechanism: an
+operator that chooses such configurations must select candidate
+configurations using the remaining signals, such as the config ID, and
+accept the processing cost of decryption attempts that do not succeed.<a href="#section-7.3.2-1" class="pilcrow">¶</a></p>
 <p id="section-7.3.2-2">Attackers cannot force servers to send signed ECHConfigs
 without establishing TLS connections.  Standard TLS
 denial-of-service mitigations (rate limiting, stateless
