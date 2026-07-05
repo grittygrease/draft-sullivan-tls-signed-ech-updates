@@ -317,15 +317,16 @@ replayed configurations.  A window of 24 hours is
 RECOMMENDED as a balance between operational simplicity
 and replay resistance.
 
-The `spki` field contains the DER-encoded
-SubjectPublicKeyInfo of the signing key.  The client MUST
-compute the SHA-256 hash of `spki`, verify that it matches
-one of the hashes in `trusted_keys`, check that the
-current time is before the `not_after` timestamp, and then
-verify the signature with the public key in `spki`.  The
-`not_after` field is REQUIRED and MUST be a timestamp
-strictly greater than the client's current time at
-verification.
+The `spki` field contains the DER-encoded SubjectPublicKeyInfo of the
+signing key.  The client MUST compute the SHA-256 hash of `spki`, verify
+that it matches one of the hashes in `trusted_keys`, check that the
+current time is before the `not_after` timestamp, and then verify the
+signature with the public key in `spki`.  The `not_after` field is
+REQUIRED and MUST be a timestamp strictly greater than the client's
+current time at verification.  Because this check is strict and uses the
+client's local clock, operators SHOULD provision `not_after` with enough
+margin to accommodate reasonable client clock skew (on the order of
+minutes).
 
 The `algorithm` field is a `SignatureScheme` value from
 {{!RFC8446}}.  The client MUST verify that `algorithm` is
@@ -506,11 +507,15 @@ cleartext.
 
 ## Active Network Attackers
 
-The security of this mechanism fundamentally depends on the
-authenticity of the initial ECHConfig.  If an attacker can
-inject a malicious initial configuration, the client's
-privacy is compromised, but their connections remain
-properly authenticated.
+The security of this mechanism fundamentally depends on the authenticity
+of the initial ECHConfig.  If an attacker can inject a malicious initial
+configuration, the client's privacy is compromised, but their
+connections remain properly authenticated.
+
+On ECH rejection, the client sends no application data over the outer
+handshake, so an attacker that presents a forged or unvalidatable retry
+configuration extracts nothing from the client beyond what the rejection
+itself reveals.
 
 Initial retrieval of ECHConfigList via DNS is unchanged by
 this mechanism.  This specification does not attempt to
@@ -614,13 +619,15 @@ transitions.
 
 ### Denial of Service Considerations
 
-The ECH specification allows ECH operators to decide which
-ECH extensions to attempt to decrypt based on the public
-ECHConfig ID advertised in the ClientHello and the public
-name.  This extension reduces the value of those signals,
-depending on the ECH operator's chosen configurations,
-meaning that ECH operators may need to trial decrypt
-incoming ECH extensions.
+The ECH specification allows ECH operators to decide which ECH
+extensions to attempt to decrypt based on the public ECHConfig ID
+advertised in the ClientHello and the public name.  Deployments of this
+mechanism that vary the public name (for example, per-client public
+names) weaken the public name as a routing signal.  This is an
+operational routing tradeoff rather than a protocol mechanism: an
+operator that chooses such configurations must select candidate
+configurations using the remaining signals, such as the config ID, and
+accept the processing cost of decryption attempts that do not succeed.
 
 Attackers cannot force servers to send signed ECHConfigs
 without establishing TLS connections.  Standard TLS
