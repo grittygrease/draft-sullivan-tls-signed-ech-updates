@@ -40,7 +40,6 @@ venue:
   group: TLS
   type: Working Group
   github: grittygrease/draft-sullivan-tls-signed-ech-updates
----
 
 --- abstract
 
