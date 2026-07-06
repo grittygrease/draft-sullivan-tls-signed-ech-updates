@@ -346,9 +346,11 @@ key), and MUST reject the signed ECHConfig if it is not.
 The signature is computed and verified according to the
 rules for that `SignatureScheme` in {{!RFC8446}}.
 
-Implementations MUST support `ecdsa_secp256r1_sha256`.
-Implementations MAY support additional `SignatureScheme`
-values and MUST be able to handle algorithm transitions.
+Implementations MUST support `ecdsa_secp256r1_sha256`.  Implementations
+MAY support additional `SignatureScheme` values.  A client that receives
+a signed ECHConfig with an `algorithm` value it does not support MUST
+treat the retry_config as failing validation and continue to the next
+retry_config, as described in {{client-behavior}}.
 
 The SPKI hash uses SHA-256 (value 4 in the IANA TLS
 HashAlgorithm registry).  Allowing multiple hashes enables
@@ -402,10 +404,14 @@ support key rotation.
 
 ### Client Behavior {#client-behavior}
 
-When a client retrieves an ECHConfig (e.g., from DNS), it
-examines the `ech_authinfo` extension and records the set
-of `trusted_keys` for the duration of that connection
-attempt only; these are not cached across connections.
+When a client retrieves an ECHConfig (e.g., from DNS), it examines the
+`ech_authinfo` extension and records the set of `trusted_keys` for the
+duration of that connection attempt only; these are not cached across
+connections.  This is distinct from caching the ECHConfig itself: a
+client MAY cache the initial ECHConfig for reuse on later connections,
+but it MUST re-derive `trusted_keys` from that ECHConfig's
+`ech_authinfo` on each connection attempt rather than reuse
+`trusted_keys` recorded during a previous attempt.
 
 The steps below apply only when the selected initial
 ECHConfig contains `ech_authinfo`.  Otherwise, the client
@@ -422,9 +428,10 @@ ECH retry_config is authentic.
    {{extensions}} and {{wire-formats}}, and MUST contain an
    `ech_auth` extension; a retry_config that does not is treated as
    failing validation.  The client computes the SHA-256 hash of the
-   provided `spki`, verifies it matches one of the entries in
-   `trusted_keys`, and verifies the signature using the public key
-   contained in `spki`.
+   provided `spki` and verifies it matches one of the entries in the
+   `trusted_keys` recorded from the `ech_authinfo` of the initial
+   ECHConfig used for this connection attempt, then verifies the
+   signature using the public key contained in `spki`.
 
 2. Validity Checking: The client verifies that
    `not_after` is strictly greater than the current time.
@@ -506,7 +513,7 @@ This flow works identically to existing ECH.
 2. Server rejects ECH: Cannot decrypt inner ClientHello
 3. Server continues outer handshake:
    - Sends signed ECHConfig in EncryptedExtensions
-   - Uses TLS certificate for `foo.example.net` (the client
+   - Uses TLS certificate for `ech.example.net` (the client
      does not validate this certificate; retry
      authentication uses the signed ECHConfig)
 4. Client recovery:
@@ -551,8 +558,8 @@ channel.
 ECHConfigs delivered in EncryptedExtensions are carried inside the TLS
 1.3 handshake and are hidden from passive observers.  For signed
 ECHConfigs, retry configuration integrity does not depend on
-authenticating the outer TLS server identity, because the client does not
-validate the server's certificate chain for the public name.
+authenticating the outer TLS server identity, because the client does
+not validate the server's certificate chain for the public name.
 
 Instead, the client verifies each ECHConfig against the trusted keys
 recorded from the initial ECHConfig.  This authenticates the
@@ -626,12 +633,11 @@ difference is in how the server authenticates retry
 configurations, not how it responds to the success or
 failure of that authentication.
 
-Algorithm agility is provided through the TLS
-SignatureScheme registry.  As specified in
-{{extensions}}, implementations MUST support
-`ecdsa_secp256r1_sha256`, MAY support additional commonly
-deployed algorithms, and MUST be able to handle algorithm
-transitions.
+Algorithm agility is provided through the TLS SignatureScheme registry.
+As specified in {{extensions}}, implementations MUST support
+`ecdsa_secp256r1_sha256` and MAY support additional commonly deployed
+algorithms.  An unsupported `algorithm` value MUST be treated as failing
+validation, and the client continues to the next retry_config.
 
 ### Denial of Service Considerations
 
