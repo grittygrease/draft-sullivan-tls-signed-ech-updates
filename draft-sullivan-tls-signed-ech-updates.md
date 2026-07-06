@@ -124,11 +124,14 @@ ECHConfigList:
   values).
 
 ECHConfigTBS (To-Be-Signed):
-: The serialized ECHConfig structure including the
+: A fresh serialization of the ECHConfig structure including the
   `ech_auth` extension, but with the `signature` field
-  within `ech_auth` set to zero-length.  This includes all
-  ECHConfig fields and the `ech_auth` extension's
-  `not_after`, `disable`, `spki`, and `algorithm` fields.
+  within `ech_auth` set to zero-length.  The `ech_auth`
+  extension data length, ECHConfig `extensions` vector
+  length, and ECHConfig `length` field are computed for
+  that zero-length form.  This includes all ECHConfig fields
+  and the `ech_auth` extension's `not_after`, `disable`,
+  `spki`, and `algorithm` fields.
 
 signed ECHConfig:
 : An ECHConfig that contains an `ech_auth` extension with
@@ -266,9 +269,12 @@ following structure:
         uint8 disable;    /* boolean: 0 = false, 1 = true */
         opaque spki<1..2^16-1>;
         SignatureScheme algorithm;
-        opaque signature<1..2^16-1>;
+        opaque signature<0..2^16-1>;
     } ECHAuth;
 ~~~~
+
+The `signature` field in a wire `ECHAuth` MUST be non-empty.
+The zero-length form is used only when constructing `ECHConfigTBS`.
 
 The `disable` field is a boolean.
 When set to `1`, the client MUST NOT attempt ECH on the
@@ -291,17 +297,21 @@ The signature is computed over the concatenation:
 
 where:
 
-- `ECHConfigTBS` (To-Be-Signed) is the serialized
+- `ECHConfigTBS` (To-Be-Signed) is a fresh serialization of the
   ECHConfig structure including the `ech_auth` extension,
   but with the `signature` field within `ech_auth` set to
-  zero-length.  That is, the two-byte length prefix of the
+  zero-length.  The two-byte length prefix of the
   `signature` field is encoded as `0x0000` and no signature
-  bytes follow; this zero-length encoding is used only when
-  constructing `ECHConfigTBS` and does not appear on the
-  wire, where `signature` carries the actual signature.
-  `ECHConfigTBS` includes all ECHConfig fields and the
-  `ech_auth` extension's `not_after`, `disable`, `spki`, and
-  `algorithm` fields.
+  bytes follow.  The `ech_auth` extension data length,
+  ECHConfig `extensions` vector length, and ECHConfig
+  `length` field are recomputed for that serialization.
+  This makes the signed bytes independent of the final
+  encoded signature length.  This zero-length encoding is
+  used only when constructing `ECHConfigTBS` and does not
+  appear on the wire, where `signature` carries the actual
+  signature.  `ECHConfigTBS` includes all ECHConfig fields
+  and the `ech_auth` extension's `not_after`, `disable`,
+  `spki`, and `algorithm` fields.
 - All multi-byte values use network byte order
   (big-endian).
 - The serialization follows TLS 1.3 presentation language
