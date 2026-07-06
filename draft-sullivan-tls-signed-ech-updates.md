@@ -383,9 +383,10 @@ The server sends a Certificate message as part of the outer handshake,
 but the certificate need not be valid for the ECHConfig's `public_name`.
 The server MAY use any certificate, including its default certificate or
 one for the origin server name.  The client does not rely on the
-server's certificate to authenticate the retry configurations; the outer
-handshake serves only as an encrypted, integrity-protected transport for
-the signed configurations.
+server's certificate to authenticate the retry configurations.  Active
+authentication comes from `ech_auth`.  The outer handshake only carries
+the signed configurations and protects their delivery from passive
+observers.
 
 The server may indicate that the client should attempt to
 retry without ECH by setting `disable` to `1` in a
@@ -548,22 +549,17 @@ channel.
 
 ### Retry Configuration Integrity
 
-ECHConfigs delivered in EncryptedExtensions are usually
-protected by TLS 1.3's handshake encryption and integrity
-mechanisms.  The Finished message ensures that any
-modification by an attacker would be detected.  The
-authenticity of the Finished message is assured by
-validating the server's certificate chain, which the client
-checks is valid for the ECH Public Name.
+ECHConfigs delivered in EncryptedExtensions are carried inside the TLS
+1.3 handshake and are hidden from passive observers.  For signed
+ECHConfigs, retry configuration integrity does not depend on
+authenticating the outer TLS server identity, because the client does not
+validate the server's certificate chain for the public name.
 
-However, signed ECHConfigs do not benefit from this handshake
-authentication, because the client does not validate the server's
-certificate chain.  Instead, the client verifies each ECHConfig against
-the trusted keys recorded from the initial ECHConfig.  This
-authenticates the configuration to the same trust anchor that a
-certificate for the public name would, but, unlike a CertificateVerify
-computed over the handshake transcript, the signature carries no
-connection-specific input.
+Instead, the client verifies each ECHConfig against the trusted keys
+recorded from the initial ECHConfig.  This authenticates the
+configuration to the trust anchor that authorized the initial ECHConfig,
+but, unlike a CertificateVerify computed over the handshake transcript,
+the signature carries no connection-specific input.
 
 The `not_after` timestamp ensures configuration freshness.
 This temporal bound prevents clients from accepting stale
