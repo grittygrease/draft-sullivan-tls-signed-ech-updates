@@ -1653,9 +1653,11 @@ key carried in <code>spki</code> (for example, the curve of an ECDSA
 key), and MUST reject the signed ECHConfig if it is not.
 The signature is computed and verified according to the
 rules for that <code>SignatureScheme</code> in <span>[<a href="#RFC8446" class="cite xref">RFC8446</a>]</span>.<a href="#section-5.1.1-7" class="pilcrow">¶</a></p>
-<p id="section-5.1.1-8">Implementations MUST support <code>ecdsa_secp256r1_sha256</code>.
-Implementations MAY support additional <code>SignatureScheme</code>
-values and MUST be able to handle algorithm transitions.<a href="#section-5.1.1-8" class="pilcrow">¶</a></p>
+<p id="section-5.1.1-8">Implementations MUST support <code>ecdsa_secp256r1_sha256</code>.  Implementations
+MAY support additional <code>SignatureScheme</code> values.  A client that receives
+a signed ECHConfig with an <code>algorithm</code> value it does not support MUST
+treat the retry_config as failing validation and continue to the next
+retry_config, as described in <a href="#client-behavior" class="auto internal xref">Section 5.2.2</a>.<a href="#section-5.1.1-8" class="pilcrow">¶</a></p>
 <p id="section-5.1.1-9">The SPKI hash uses SHA-256 (value 4 in the IANA TLS
 HashAlgorithm registry).  Allowing multiple hashes enables
 seamless key rollovers.<a href="#section-5.1.1-9" class="pilcrow">¶</a></p>
@@ -1721,10 +1723,14 @@ support key rotation.<a href="#section-5.2.1-5" class="pilcrow">¶</a></p>
           <h4 id="name-client-behavior">
 <a href="#section-5.2.2" class="section-number selfRef">5.2.2. </a><a href="#name-client-behavior" class="section-name selfRef">Client Behavior</a>
           </h4>
-<p id="section-5.2.2-1">When a client retrieves an ECHConfig (e.g., from DNS), it
-examines the <code>ech_authinfo</code> extension and records the set
-of <code>trusted_keys</code> for the duration of that connection
-attempt only; these are not cached across connections.<a href="#section-5.2.2-1" class="pilcrow">¶</a></p>
+<p id="section-5.2.2-1">When a client retrieves an ECHConfig (e.g., from DNS), it examines the
+<code>ech_authinfo</code> extension and records the set of <code>trusted_keys</code> for the
+duration of that connection attempt only; these are not cached across
+connections.  This is distinct from caching the ECHConfig itself: a
+client MAY cache the initial ECHConfig for reuse on later connections,
+but it MUST re-derive <code>trusted_keys</code> from that ECHConfig's
+<code>ech_authinfo</code> on each connection attempt rather than reuse
+<code>trusted_keys</code> recorded during a previous attempt.<a href="#section-5.2.2-1" class="pilcrow">¶</a></p>
 <p id="section-5.2.2-2">The steps below apply only when the selected initial
 ECHConfig contains <code>ech_authinfo</code>.  Otherwise, the client
 follows <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> without modification, including
@@ -1740,9 +1746,10 @@ ECH retry_config is authentic.<a href="#section-5.2.2-3" class="pilcrow">¶</a><
 <a href="#extensions" class="auto internal xref">Section 5.1</a> and <a href="#wire-formats" class="auto internal xref">Section 5</a>, and MUST contain an
 <code>ech_auth</code> extension; a retry_config that does not is treated as
 failing validation.  The client computes the SHA-256 hash of the
-provided <code>spki</code>, verifies it matches one of the entries in
-<code>trusted_keys</code>, and verifies the signature using the public key
-contained in <code>spki</code>.<a href="#section-5.2.2-4.1.1" class="pilcrow">¶</a></p>
+provided <code>spki</code> and verifies it matches one of the entries in the
+<code>trusted_keys</code> recorded from the <code>ech_authinfo</code> of the initial
+ECHConfig used for this connection attempt, then verifies the
+signature using the public key contained in <code>spki</code>.<a href="#section-5.2.2-4.1.1" class="pilcrow">¶</a></p>
 </li>
             <li id="section-5.2.2-4.2">
               <p id="section-5.2.2-4.2.1">Validity Checking: The client verifies that
@@ -1869,7 +1876,7 @@ mandatory-to-implement <code>ecdsa_secp256r1_sha256</code> scheme).<a href="#sec
                 <p id="section-6.3-1.3.2.1.1">Sends signed ECHConfig in EncryptedExtensions<a href="#section-6.3-1.3.2.1.1" class="pilcrow">¶</a></p>
 </li>
               <li class="normal" id="section-6.3-1.3.2.2">
-                <p id="section-6.3-1.3.2.2.1">Uses TLS certificate for <code>foo.example.net</code> (the client
+                <p id="section-6.3-1.3.2.2.1">Uses TLS certificate for <code>ech.example.net</code> (the client
 does not validate this certificate; retry
 authentication uses the signed ECHConfig)<a href="#section-6.3-1.3.2.2.1" class="pilcrow">¶</a></p>
 </li>
@@ -1941,8 +1948,8 @@ channel.<a href="#section-7.2-3" class="pilcrow">¶</a></p>
 <p id="section-7.2.1-1">ECHConfigs delivered in EncryptedExtensions are carried inside the TLS
 1.3 handshake and are hidden from passive observers.  For signed
 ECHConfigs, retry configuration integrity does not depend on
-authenticating the outer TLS server identity, because the client does not
-validate the server's certificate chain for the public name.<a href="#section-7.2.1-1" class="pilcrow">¶</a></p>
+authenticating the outer TLS server identity, because the client does
+not validate the server's certificate chain for the public name.<a href="#section-7.2.1-1" class="pilcrow">¶</a></p>
 <p id="section-7.2.1-2">Instead, the client verifies each ECHConfig against the trusted keys
 recorded from the initial ECHConfig.  This authenticates the
 configuration to the trust anchor that authorized the initial ECHConfig,
@@ -2025,12 +2032,11 @@ identically to existing ECH connection attempts.  The only
 difference is in how the server authenticates retry
 configurations, not how it responds to the success or
 failure of that authentication.<a href="#section-7.3.1-1" class="pilcrow">¶</a></p>
-<p id="section-7.3.1-2">Algorithm agility is provided through the TLS
-SignatureScheme registry.  As specified in
-<a href="#extensions" class="auto internal xref">Section 5.1</a>, implementations MUST support
-<code>ecdsa_secp256r1_sha256</code>, MAY support additional commonly
-deployed algorithms, and MUST be able to handle algorithm
-transitions.<a href="#section-7.3.1-2" class="pilcrow">¶</a></p>
+<p id="section-7.3.1-2">Algorithm agility is provided through the TLS SignatureScheme registry.
+As specified in <a href="#extensions" class="auto internal xref">Section 5.1</a>, implementations MUST support
+<code>ecdsa_secp256r1_sha256</code> and MAY support additional commonly deployed
+algorithms.  An unsupported <code>algorithm</code> value MUST be treated as failing
+validation, and the client continues to the next retry_config.<a href="#section-7.3.1-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="denial-of-service-considerations">
