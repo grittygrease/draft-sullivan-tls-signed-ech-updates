@@ -33,7 +33,7 @@ normative:
   RFC9849:
 
 informative:
-  I-D.ietf-tls-svcb-ech:
+  RFC9848:
   I-D.ietf-tls-wkech:
 
 venue:
@@ -65,7 +65,7 @@ Deployment of TLS Encrypted ClientHello (ECH) requires that clients
 obtain the server's current ECH configuration (ECHConfig) before
 initiating a connection.  Current mechanisms distribute ECHConfig data
 via DNS SVCB and HTTPS resource records
-{{!RFC9460}}{{I-D.ietf-tls-svcb-ech}} or HTTPS well-known URIs
+{{!RFC9460}}{{RFC9848}} or HTTPS well-known URIs
 {{I-D.ietf-tls-wkech}}, allowing servers to publish their ECHConfigList
 prior to connection establishment.
 
