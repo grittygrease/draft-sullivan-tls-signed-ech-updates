@@ -282,9 +282,9 @@ retry.  The ECHConfig to which this `ech_auth` extension is
 attached is then used only to carry and authenticate this
 signal; its other contents (for example, its HPKE
 `public_key`) MUST be ignored.  On successful validation the client
-SHOULD clear any cached ECHConfig for this public name and retry without
-ECH.  Senders MUST encode `disable` as `0` or `1`; clients MUST reject
-any other value.
+SHOULD clear cached ECHConfig state associated with the ECHConfig source
+used to bootstrap the connection and retry without ECH.  Senders MUST
+encode `disable` as `0` or `1`; clients MUST reject any other value.
 
 ### Signature Computation
 
