@@ -255,10 +255,10 @@ The `ech_auth` and `ech_authinfo` extensions have the
 following structure:
 
 ~~~~
-    opaque SPKIHash<32..32>;
+    opaque SPKIHash[32];
 
     struct {
-      SPKIHash trusted_keys<32..2^16-1>;
+      SPKIHash trusted_keys<32..2^16-32>;
     } ECHAuthInfo;
 
     struct {
