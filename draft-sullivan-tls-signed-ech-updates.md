@@ -417,12 +417,13 @@ in 6.1.6 of {{!RFC9849}}.  However, rather than follow 6.1.7 of
 {{!RFC9849}}, it follows the steps below to determine if each provided
 ECH retry_config is authentic.
 
-1. Validation: The retry_config MUST contain an `ech_auth`
-   extension; a retry_config that does not is treated as
-   failing validation.  The client computes the SHA-256 hash
-   of the provided `spki`, verifies it matches one of the
-   entries in `trusted_keys`, and verifies the signature
-   using the public key contained in `spki`.
+1. Validation: The retry_config MUST satisfy the requirements in
+   {{extensions}} and {{wire-formats}}, and MUST contain an
+   `ech_auth` extension; a retry_config that does not is treated as
+   failing validation.  The client computes the SHA-256 hash of the
+   provided `spki`, verifies it matches one of the entries in
+   `trusted_keys`, and verifies the signature using the public key
+   contained in `spki`.
 
 2. Validity Checking: The client verifies that
    `not_after` is strictly greater than the current time.
