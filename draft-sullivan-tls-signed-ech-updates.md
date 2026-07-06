@@ -447,6 +447,11 @@ ECH retry_config is authentic.
    the appropriate alert and report the error to the calling
    application.
 
+A signed retry configuration validated by these steps is valid only for
+the immediate retry attempt.  Clients MUST NOT persist it or use it as
+an initial ECHConfig for later connections unless it is revalidated
+against a freshly obtained ECHConfig that contains `ech_authinfo`.
+
 Note: Regardless of validation outcome in an ECH
 rejection, the client will terminate the current
 connection.  The difference is whether it retries with the
