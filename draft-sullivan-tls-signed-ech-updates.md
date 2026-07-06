@@ -610,7 +610,7 @@ Servers MUST protect their ECH update signing keys.  If a
 signing key is compromised, the server SHOULD remove its
 hash from `trusted_keys`.  As clients do not cache `trusted_keys` beyond
 the lifetime of their initial connection attempt, this removal takes
-effect as soon as the client is aware of the new ECHConfiguration, e.g.
+effect as soon as the client is aware of the new ECHConfig, e.g.
 via DNS.
 
 Servers SHOULD include multiple
