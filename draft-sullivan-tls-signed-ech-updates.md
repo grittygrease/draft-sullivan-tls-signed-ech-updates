@@ -406,6 +406,11 @@ examines the `ech_authinfo` extension and records the set
 of `trusted_keys` for the duration of that connection
 attempt only; these are not cached across connections.
 
+The steps below apply only when the selected initial
+ECHConfig contains `ech_authinfo`.  Otherwise, the client
+follows {{!RFC9849}} without modification, including
+Section 6.1.7 retry_config authentication.
+
 During the TLS handshake, if ECH was not accepted by the server as
 defined in 6.1.4 of {{!RFC9849}}, the client follows the steps described
 in 6.1.6 of {{!RFC9849}}.  However, rather than follow 6.1.7 of
