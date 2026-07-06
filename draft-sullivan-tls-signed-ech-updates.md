@@ -33,14 +33,13 @@ normative:
   RFC9849:
 
 informative:
-  I-D.ietf-tls-svcb-ech:
+  RFC9848:
   I-D.ietf-tls-wkech:
 
 venue:
   group: TLS
   type: Working Group
   github: grittygrease/draft-sullivan-tls-signed-ech-updates
----
 
 --- abstract
 
@@ -65,7 +64,7 @@ Deployment of TLS Encrypted ClientHello (ECH) requires that clients
 obtain the server's current ECH configuration (ECHConfig) before
 initiating a connection.  Current mechanisms distribute ECHConfig data
 via DNS SVCB and HTTPS resource records
-{{!RFC9460}}{{I-D.ietf-tls-svcb-ech}} or HTTPS well-known URIs
+{{!RFC9460}}{{RFC9848}} or HTTPS well-known URIs
 {{I-D.ietf-tls-wkech}}, allowing servers to publish their ECHConfigList
 prior to connection establishment.
 
@@ -124,11 +123,14 @@ ECHConfigList:
   values).
 
 ECHConfigTBS (To-Be-Signed):
-: The serialized ECHConfig structure including the
+: A fresh serialization of the ECHConfig structure including the
   `ech_auth` extension, but with the `signature` field
-  within `ech_auth` set to zero-length.  This includes all
-  ECHConfig fields and the `ech_auth` extension's
-  `not_after`, `disable`, `spki`, and `algorithm` fields.
+  within `ech_auth` set to zero-length.  The `ech_auth`
+  extension data length, ECHConfig `extensions` vector
+  length, and ECHConfig `length` field are computed for
+  that zero-length form.  This includes all ECHConfig fields
+  and the `ech_auth` extension's `not_after`, `disable`,
+  `spki`, and `algorithm` fields.
 
 signed ECHConfig:
 : An ECHConfig that contains an `ech_auth` extension with
@@ -138,9 +140,10 @@ signed ECHConfig:
 public name:
 : The value of the `public_name` field in the ECHConfig,
   i.e., the authoritative DNS name for updates and
-  validation associated with that configuration.  This
-  name is not required to be the ClientHelloOuter SNI,
-  though deployments sometimes choose to align them.
+  validation associated with that configuration.  RFC 9849
+  recommends using this name as the ClientHelloOuter SNI,
+  but this document does not require it for signed retry
+  authentication.
 
 retry_configs:
 : The ECHConfigList sent by a server in
@@ -255,10 +258,10 @@ The `ech_auth` and `ech_authinfo` extensions have the
 following structure:
 
 ~~~~
-    opaque SPKIHash<32..32>;
+    opaque SPKIHash[32];
 
     struct {
-      SPKIHash trusted_keys<32..2^16-1>;
+      SPKIHash trusted_keys<32..2^16-32>;
     } ECHAuthInfo;
 
     struct {
@@ -266,9 +269,12 @@ following structure:
         uint8 disable;    /* boolean: 0 = false, 1 = true */
         opaque spki<1..2^16-1>;
         SignatureScheme algorithm;
-        opaque signature<1..2^16-1>;
+        opaque signature<0..2^16-1>;
     } ECHAuth;
 ~~~~
+
+The `signature` field in a wire `ECHAuth` MUST be non-empty.
+The zero-length form is used only when constructing `ECHConfigTBS`.
 
 The `disable` field is a boolean.
 When set to `1`, the client MUST NOT attempt ECH on the
@@ -276,9 +282,9 @@ retry.  The ECHConfig to which this `ech_auth` extension is
 attached is then used only to carry and authenticate this
 signal; its other contents (for example, its HPKE
 `public_key`) MUST be ignored.  On successful validation the client
-SHOULD clear any cached ECHConfig for this public name and retry without
-ECH.  Senders MUST encode `disable` as `0` or `1`; clients MUST reject
-any other value.
+SHOULD clear cached ECHConfig state associated with the ECHConfig source
+used to bootstrap the connection and retry without ECH.  Senders MUST
+encode `disable` as `0` or `1`; clients MUST reject any other value.
 
 ### Signature Computation
 
@@ -291,17 +297,21 @@ The signature is computed over the concatenation:
 
 where:
 
-- `ECHConfigTBS` (To-Be-Signed) is the serialized
+- `ECHConfigTBS` (To-Be-Signed) is a fresh serialization of the
   ECHConfig structure including the `ech_auth` extension,
   but with the `signature` field within `ech_auth` set to
-  zero-length.  That is, the two-byte length prefix of the
+  zero-length.  The two-byte length prefix of the
   `signature` field is encoded as `0x0000` and no signature
-  bytes follow; this zero-length encoding is used only when
-  constructing `ECHConfigTBS` and does not appear on the
-  wire, where `signature` carries the actual signature.
-  `ECHConfigTBS` includes all ECHConfig fields and the
-  `ech_auth` extension's `not_after`, `disable`, `spki`, and
-  `algorithm` fields.
+  bytes follow.  The `ech_auth` extension data length,
+  ECHConfig `extensions` vector length, and ECHConfig
+  `length` field are recomputed for that serialization.
+  This makes the signed bytes independent of the final
+  encoded signature length.  This zero-length encoding is
+  used only when constructing `ECHConfigTBS` and does not
+  appear on the wire, where `signature` carries the actual
+  signature.  `ECHConfigTBS` includes all ECHConfig fields
+  and the `ech_auth` extension's `not_after`, `disable`,
+  `spki`, and `algorithm` fields.
 - All multi-byte values use network byte order
   (big-endian).
 - The serialization follows TLS 1.3 presentation language
@@ -373,9 +383,10 @@ The server sends a Certificate message as part of the outer handshake,
 but the certificate need not be valid for the ECHConfig's `public_name`.
 The server MAY use any certificate, including its default certificate or
 one for the origin server name.  The client does not rely on the
-server's certificate to authenticate the retry configurations; the outer
-handshake serves only as an encrypted, integrity-protected transport for
-the signed configurations.
+server's certificate to authenticate the retry configurations.  Active
+authentication comes from `ech_auth`.  The outer handshake only carries
+the signed configurations and protects their delivery from passive
+observers.
 
 The server may indicate that the client should attempt to
 retry without ECH by setting `disable` to `1` in a
@@ -396,18 +407,24 @@ examines the `ech_authinfo` extension and records the set
 of `trusted_keys` for the duration of that connection
 attempt only; these are not cached across connections.
 
+The steps below apply only when the selected initial
+ECHConfig contains `ech_authinfo`.  Otherwise, the client
+follows {{!RFC9849}} without modification, including
+Section 6.1.7 retry_config authentication.
+
 During the TLS handshake, if ECH was not accepted by the server as
 defined in 6.1.4 of {{!RFC9849}}, the client follows the steps described
 in 6.1.6 of {{!RFC9849}}.  However, rather than follow 6.1.7 of
 {{!RFC9849}}, it follows the steps below to determine if each provided
 ECH retry_config is authentic.
 
-1. Validation: The retry_config MUST contain an `ech_auth`
-   extension; a retry_config that does not is treated as
-   failing validation.  The client computes the SHA-256 hash
-   of the provided `spki`, verifies it matches one of the
-   entries in `trusted_keys`, and verifies the signature
-   using the public key contained in `spki`.
+1. Validation: The retry_config MUST satisfy the requirements in
+   {{extensions}} and {{wire-formats}}, and MUST contain an
+   `ech_auth` extension; a retry_config that does not is treated as
+   failing validation.  The client computes the SHA-256 hash of the
+   provided `spki`, verifies it matches one of the entries in
+   `trusted_keys`, and verifies the signature using the public key
+   contained in `spki`.
 
 2. Validity Checking: The client verifies that
    `not_after` is strictly greater than the current time.
@@ -431,6 +448,11 @@ ECH retry_config is authentic.
    the appropriate alert and report the error to the calling
    application.
 
+A signed retry configuration validated by these steps is valid only for
+the immediate retry attempt.  Clients MUST NOT persist it or use it as
+an initial ECHConfig for later connections unless it is revalidated
+against a freshly obtained ECHConfig that contains `ech_authinfo`.
+
 Note: Regardless of validation outcome in an ECH
 rejection, the client will terminate the current
 connection.  The difference is whether it retries with the
@@ -445,24 +467,23 @@ high order bit set to 1 {{!RFC9849}}.  A client
 that does not understand a mandatory ECHConfig extension
 MUST ignore the entire ECHConfig.
 
-The `ech_authinfo` extension is always mandatory: the
-codepoint assigned to it ({{iana}}) has the high-order bit
-set.  As a consequence, a client that does not implement this
-specification (a "legacy client") ignores the entire
-ECHConfig and does not attempt ECH with it, connecting
-directly or using another compatible configuration.  This
-is the intended behavior: a legacy client would otherwise
-attempt ECH and then be unable to authenticate any
-`retry_configs` delivered on an ECH rejection (because, in
-the deployments this document targets, the server may hold no
-certificate valid for the public name), causing the
-connection to fail.  Marking the extension mandatory ensures
-such clients degrade gracefully rather than using a
-configuration whose retry path they cannot complete.
+The `ech_authinfo` and `ech_auth` extensions are mandatory.
+The codepoints assigned to them ({{iana}}) have the high-order bit set.
+As a consequence, a client that does not implement this specification
+(a "legacy client") and receives an initial ECHConfig with
+`ech_authinfo` ignores the entire ECHConfig and does not attempt ECH
+with it, connecting directly or using another compatible configuration.
+This is the intended behavior: a legacy client would otherwise attempt
+ECH and then be unable to authenticate any `retry_configs` delivered on
+an ECH rejection (because, in the deployments this document targets, the
+server may hold no certificate valid for the public name), causing the
+connection to fail.  Marking the extension mandatory ensures such
+clients degrade gracefully rather than using a configuration whose retry
+path they cannot complete.
 
 Servers wanting to support both legacy clients and clients that
 understand this specification should offer multiple ECHConfigs, one with
-this extension, one without.
+`ech_authinfo`, one without.
 
 # Example Exchange
 
@@ -527,22 +548,17 @@ channel.
 
 ### Retry Configuration Integrity
 
-ECHConfigs delivered in EncryptedExtensions are usually
-protected by TLS 1.3's handshake encryption and integrity
-mechanisms.  The Finished message ensures that any
-modification by an attacker would be detected.  The
-authenticity of the Finished message is assured by
-validating the server's certificate chain, which the client
-checks is valid for the ECH Public Name.
+ECHConfigs delivered in EncryptedExtensions are carried inside the TLS
+1.3 handshake and are hidden from passive observers.  For signed
+ECHConfigs, retry configuration integrity does not depend on
+authenticating the outer TLS server identity, because the client does not
+validate the server's certificate chain for the public name.
 
-However, signed ECHConfigs do not benefit from this handshake
-authentication, because the client does not validate the server's
-certificate chain.  Instead, the client verifies each ECHConfig against
-the trusted keys recorded from the initial ECHConfig.  This
-authenticates the configuration to the same trust anchor that a
-certificate for the public name would, but, unlike a CertificateVerify
-computed over the handshake transcript, the signature carries no
-connection-specific input.
+Instead, the client verifies each ECHConfig against the trusted keys
+recorded from the initial ECHConfig.  This authenticates the
+configuration to the trust anchor that authorized the initial ECHConfig,
+but, unlike a CertificateVerify computed over the handshake transcript,
+the signature carries no connection-specific input.
 
 The `not_after` timestamp ensures configuration freshness.
 This temporal bound prevents clients from accepting stale
@@ -593,7 +609,7 @@ Servers MUST protect their ECH update signing keys.  If a
 signing key is compromised, the server SHOULD remove its
 hash from `trusted_keys`.  As clients do not cache `trusted_keys` beyond
 the lifetime of their initial connection attempt, this removal takes
-effect as soon as the client is aware of the new ECHConfiguration, e.g.
+effect as soon as the client is aware of the new ECHConfig, e.g.
 via DNS.
 
 Servers SHOULD include multiple
