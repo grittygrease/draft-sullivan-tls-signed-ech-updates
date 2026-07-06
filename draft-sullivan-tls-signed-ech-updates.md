@@ -467,24 +467,23 @@ high order bit set to 1 {{!RFC9849}}.  A client
 that does not understand a mandatory ECHConfig extension
 MUST ignore the entire ECHConfig.
 
-The `ech_authinfo` extension is always mandatory: the
-codepoint assigned to it ({{iana}}) has the high-order bit
-set.  As a consequence, a client that does not implement this
-specification (a "legacy client") ignores the entire
-ECHConfig and does not attempt ECH with it, connecting
-directly or using another compatible configuration.  This
-is the intended behavior: a legacy client would otherwise
-attempt ECH and then be unable to authenticate any
-`retry_configs` delivered on an ECH rejection (because, in
-the deployments this document targets, the server may hold no
-certificate valid for the public name), causing the
-connection to fail.  Marking the extension mandatory ensures
-such clients degrade gracefully rather than using a
-configuration whose retry path they cannot complete.
+The `ech_authinfo` and `ech_auth` extensions are mandatory.
+The codepoints assigned to them ({{iana}}) have the high-order bit set.
+As a consequence, a client that does not implement this specification
+(a "legacy client") and receives an initial ECHConfig with
+`ech_authinfo` ignores the entire ECHConfig and does not attempt ECH
+with it, connecting directly or using another compatible configuration.
+This is the intended behavior: a legacy client would otherwise attempt
+ECH and then be unable to authenticate any `retry_configs` delivered on
+an ECH rejection (because, in the deployments this document targets, the
+server may hold no certificate valid for the public name), causing the
+connection to fail.  Marking the extension mandatory ensures such
+clients degrade gracefully rather than using a configuration whose retry
+path they cannot complete.
 
 Servers wanting to support both legacy clients and clients that
 understand this specification should offer multiple ECHConfigs, one with
-this extension, one without.
+`ech_authinfo`, one without.
 
 # Example Exchange
 
