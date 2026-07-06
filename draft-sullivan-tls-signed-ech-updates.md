@@ -141,9 +141,10 @@ signed ECHConfig:
 public name:
 : The value of the `public_name` field in the ECHConfig,
   i.e., the authoritative DNS name for updates and
-  validation associated with that configuration.  This
-  name is not required to be the ClientHelloOuter SNI,
-  though deployments sometimes choose to align them.
+  validation associated with that configuration.  RFC 9849
+  recommends using this name as the ClientHelloOuter SNI,
+  but this document does not require it for signed retry
+  authentication.
 
 retry_configs:
 : The ECHConfigList sent by a server in
